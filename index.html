@@ -1,0 +1,1008 @@
+<div id="app">
+  <style>
+    #app {
+      --ink: #111a1f;
+      --paper: #d8d9d0;
+      --sheet: #fbfaf7;
+      --rule: #ded9ce;
+      --rule-strong: #b3ada0;
+      --muted: #6f6a60;
+      --p1: #2a4bc4;
+      --p2: #1c8f52;
+      --p3: #d08610;
+      --p4: #6b46d0;
+      --p5: #c4402f;
+      --p6: #0e8a9b;
+      --p7: #b03a7a;
+      --p8: #5a6470;
+      --mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", Pretendard, "Malgun Gothic", system-ui, sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      padding: 30px 24px 60px;
+      min-height: 100vh;
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+    }
+    #app *, #app *::before, #app *::after { box-sizing: border-box; }
+
+    .sheet {
+      max-width: 1500px;
+      margin: 0 auto;
+      background: var(--sheet);
+      border: 1px solid var(--rule-strong);
+      box-shadow: 0 1px 0 rgba(17,26,31,.06), 0 26px 60px -40px rgba(17,26,31,.55);
+    }
+
+    /* ---------- header ---------- */
+    .top {
+      display: flex; flex-wrap: wrap; align-items: flex-end; gap: 27px;
+      padding: 33px 39px 27px;
+      border-bottom: 3px solid var(--ink);
+    }
+    .eyebrow {
+      font-family: var(--mono); font-size: 15px; letter-spacing: .34em;
+      text-transform: uppercase; color: var(--muted);
+      display: block; margin-bottom: 12px;
+    }
+    .bigdate {
+      font-family: var(--mono); font-size: clamp(38px, 6vw, 58px);
+      font-weight: 500; letter-spacing: .04em; line-height: 1; margin: 0;
+    }
+    .bigdate .sep { color: var(--rule-strong); margin: 0 .12em; }
+    .top-right { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 18px; }
+
+    .dow { display: flex; gap: 6px; }
+    .dow span {
+      font-family: var(--mono); font-size: 16px;
+      width: 33px; height: 33px; display: grid; place-items: center;
+      color: var(--rule-strong); border-radius: 50%;
+    }
+    .dow span.on { color: var(--sheet); background: var(--ink); }
+
+    .nav { display: flex; align-items: center; gap: 9px; }
+    .nav button, .ghost, .arch-list button {
+      font-family: var(--mono); font-size: 16px; letter-spacing: .06em;
+      color: var(--ink); background: transparent;
+      border: 1px solid var(--rule-strong);
+      padding: 9px 15px; cursor: pointer; border-radius: 3px;
+    }
+    .nav button:hover, .ghost:hover, .arch-list button:hover { background: var(--paper); }
+    .ghost[aria-pressed="true"] { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+    .nav input[type=date] {
+      font-family: var(--mono); font-size: 18px;
+      border: 1px solid var(--rule-strong); background: transparent;
+      padding: 7px 12px; color: var(--ink); border-radius: 3px;
+    }
+    #app :focus-visible { outline: 3px solid var(--p1); outline-offset: 1px; }
+
+    /* ---------- layout ---------- */
+    .body { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); }
+    .col-r { border-left: 1px solid var(--rule); display: flex; flex-direction: column; }
+
+    .label {
+      font-family: var(--mono); font-size: 15px; letter-spacing: .3em;
+      text-transform: uppercase; color: var(--muted);
+      padding: 24px 33px 12px;
+      display: flex; align-items: center; gap: 15px; flex-wrap: wrap;
+    }
+    .label .count { margin-left: auto; letter-spacing: .06em; color: var(--rule-strong); text-transform: none; }
+    .penbar {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 0 33px 15px;
+      font-family: var(--sans); font-size: 17px; color: var(--muted);
+    }
+    .penbar .now-pen {
+      display: inline-flex; align-items: center; gap: 9px;
+      border: 1px solid var(--rule-strong); border-radius: 3px;
+      padding: 7px 14px; color: var(--ink); max-width: 340px;
+    }
+    .penbar .now-pen .swatch { width: 15px; height: 15px; border-radius: 2px; flex: none; }
+    .penbar .now-pen .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .penbar .hint { font-size: 15px; color: var(--rule-strong); }
+
+    /* ---------- time grid ---------- */
+    .plan { padding: 0 33px 27px; }
+    .colhead {
+      display: grid; grid-template-columns: 45px repeat(6, 1fr) minmax(135px, 1.5fr);
+      font-family: var(--mono); font-size: 14px; color: var(--rule-strong);
+      letter-spacing: .05em; margin-bottom: 5px;
+    }
+    .colhead span { text-align: center; }
+    .colhead .h-note { text-align: left; padding-left: 12px; letter-spacing: .2em; }
+
+    .grid { border-top: 1px solid var(--rule-strong); }
+    .row {
+      display: grid; grid-template-columns: 45px repeat(6, 1fr) minmax(135px, 1.5fr);
+      border-bottom: 1px solid var(--rule); position: relative;
+    }
+    .row.mark { border-bottom-color: var(--rule-strong); }
+    .hr {
+      font-family: var(--mono); font-size: 17px; color: var(--muted);
+      display: grid; place-items: center; justify-content: end; padding-right: 10px;
+    }
+    .row.now .hr { color: var(--ink); font-weight: 600; }
+    .row.now .hr::before {
+      content: ""; position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; background: var(--ink);
+    }
+    .cell {
+      height: 33px; border-left: 1px solid var(--rule);
+      touch-action: none; cursor: crosshair; transition: background-color .09s linear;
+      display: grid; place-items: center;
+      font-family: var(--mono); font-size: 13px; font-weight: 600;
+      color: #fff; text-shadow: 0 0 3px rgba(17,26,31,.55);
+      user-select: none; -webkit-user-select: none;
+    }
+    .cell.tick { box-shadow: inset 0 0 0 2px var(--ink); }
+    .note {
+      border: 0; border-left: 1px solid var(--rule-strong);
+      background: transparent; font-family: var(--sans); font-size: 18px;
+      color: var(--ink); padding: 0 12px; width: 100%; min-width: 0;
+    }
+    .note::placeholder { color: transparent; }
+    .row:hover .note::placeholder { color: var(--rule-strong); }
+
+    /* ---------- item lists ---------- */
+    .items { padding: 0 33px 21px; }
+    .item {
+      display: flex; align-items: center; gap: 15px;
+      border-bottom: 1px solid var(--rule);
+      padding: 9px 0 9px 12px;
+      position: relative;
+      border-left: 6px solid currentColor;
+      margin-left: -18px;
+    }
+    .item.sel { background: rgba(17,26,31,.05); box-shadow: inset 0 0 0 1px rgba(17,26,31,.1); }
+
+    .box {
+      width: 20px; height: 20px; flex: none;
+      border: 2px solid var(--rule-strong); background: transparent;
+      cursor: pointer; padding: 0; border-radius: 2px; position: relative;
+    }
+    .item.done .box { background: var(--ink); border-color: var(--ink); }
+    .item.done .box::after {
+      content: ""; position: absolute; left: 5px; top: 0px;
+      width: 6px; height: 12px;
+      border: solid var(--sheet); border-width: 0 2px 2px 0; transform: rotate(42deg);
+    }
+    .item input[type=text] {
+      flex: 1; min-width: 0; border: 0; background: transparent;
+      font-family: var(--sans); font-size: 19px; color: var(--ink); padding: 3px 0;
+    }
+    .item.done input[type=text] { color: var(--rule-strong); text-decoration: line-through; }
+    .item .mins { font-family: var(--mono); font-size: 14px; color: var(--rule-strong); flex: none; }
+    .dot {
+      width: 26px; height: 26px; flex: none; border-radius: 3px;
+      border: 1px solid rgba(17,26,31,.18); cursor: pointer; padding: 0;
+      background-color: currentColor;
+      display: grid; place-items: center;
+      font-family: var(--mono); font-size: 14px; font-weight: 600;
+      color: #fff; text-shadow: 0 0 3px rgba(17,26,31,.55);
+      line-height: 1;
+    }
+    .item .mv {
+      border: 1px solid var(--rule-strong); background: transparent;
+      font-family: var(--sans); font-size: 14px; color: var(--muted);
+      padding: 5px 10px; border-radius: 3px; cursor: pointer; flex: none;
+      white-space: nowrap; opacity: 0;
+    }
+    .item:hover .mv, .item .mv:focus-visible { opacity: 1; }
+    .item .mv:hover { color: var(--ink); border-color: var(--ink); background: var(--paper); }
+    .item .del {
+      border: 0; background: transparent; cursor: pointer;
+      color: var(--rule-strong); font-size: 24px; line-height: 1; padding: 0 4px; opacity: 0;
+    }
+    .item:hover .del, .item .del:focus-visible { opacity: 1; }
+    .item .del:hover { color: var(--p5); }
+    .addrow { display: flex; gap: 12px; padding-top: 15px; flex-wrap: wrap; }
+
+    .pal {
+      position: absolute; right: 0; top: calc(100% - 4px); z-index: 20;
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+      background: var(--sheet); border: 1px solid var(--rule-strong);
+      padding: 9px; border-radius: 3px;
+      box-shadow: 0 10px 24px -12px rgba(17,26,31,.5);
+    }
+    .pal button {
+      width: 26px; height: 26px; border-radius: 3px; cursor: pointer;
+      border: 1px solid rgba(17,26,31,.18); padding: 0;
+    }
+    .pal button.on { outline: 3px solid var(--ink); outline-offset: 1px; }
+
+    /* ---------- footer ---------- */
+    .foot {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 18px;
+      border-top: 3px solid var(--ink); padding: 18px 39px;
+      font-family: var(--mono); font-size: 16px; letter-spacing: .04em; color: var(--muted);
+    }
+    .foot .right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+    #status::before {
+      content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+      background: var(--p2); margin-right: 10px; vertical-align: 1px;
+    }
+    #status.saving::before { background: var(--p3); }
+    #status.fail::before { background: var(--p5); }
+    #syncinfo { color: var(--rule-strong); }
+    #syncinfo.on { color: var(--p2); }
+    #syncinfo:empty { display: none; }
+
+    .archive { display: none; border-top: 1px solid var(--rule); padding: 21px 39px 27px; }
+    .archive.open { display: block; }
+    .arch-list { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 15px; }
+    .arch-list button.cur { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+    .arch-empty { font-family: var(--mono); font-size: 16px; color: var(--rule-strong); margin-top: 15px; }
+
+    @media (max-width: 1000px) {
+      #app { padding: 14px 10px 40px; }
+      .body { grid-template-columns: 1fr; }
+      .col-r { border-left: 0; border-top: 3px solid var(--ink); }
+      .top { padding: 22px 18px 18px; }
+      .top-right { margin-left: 0; align-items: flex-start; width: 100%; }
+      .plan, .items, .penbar, .label { padding-left: 18px; padding-right: 18px; }
+      .foot, .archive { padding-left: 18px; padding-right: 18px; }
+      .colhead, .row { grid-template-columns: 38px repeat(6, 1fr) minmax(100px, 1.2fr); }
+      .item .del { opacity: 1; }
+      .item { margin-left: -10px; }
+    }
+    @media print {
+      #app { background: #fff; padding: 0; }
+      .sheet { box-shadow: none; border: 0; max-width: none; }
+      .nav, .foot, .archive, .item .del, .addrow, .penbar, .pal { display: none !important; }
+      .cell { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
+    @media (prefers-reduced-motion: reduce) { #app * { transition: none !important; } }
+  </style>
+
+  <div class="sheet">
+    <div class="top">
+      <div>
+        <span class="eyebrow">Daily Time Box Planner</span>
+        <h1 class="bigdate" id="bigdate">—</h1>
+      </div>
+      <div class="top-right">
+        <div class="nav">
+          <button id="prev" title="이전 날">‹</button>
+          <input type="date" id="picker">
+          <button id="next" title="다음 날">›</button>
+          <button id="today">오늘</button>
+        </div>
+        <div class="dow" id="dow"></div>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="col-l">
+        <div class="label">Time Plan <span class="count" id="planned"></span></div>
+        <div class="penbar">
+          <span class="now-pen" id="nowpen"><span class="swatch"></span><span class="txt">—</span></span>
+          <button class="ghost" id="eraser" aria-pressed="false">지우개</button>
+          <span class="hint">오른쪽 항목을 클릭해 색을 고른 뒤, 표를 드래그하세요</span>
+        </div>
+        <div class="plan">
+          <div class="colhead">
+            <span></span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span><span>00</span>
+            <span class="h-note">note</span>
+          </div>
+          <div class="grid" id="grid"></div>
+        </div>
+      </div>
+
+      <div class="col-r">
+        <div class="label">To Do List <span class="count" id="todocount"></span></div>
+        <div class="items">
+          <div id="todolist"></div>
+          <div class="addrow">
+            <button class="ghost" id="addtodo">+ 할 일 추가</button>
+            <button class="ghost" id="carry" title="전날 미완료 항목 가져오기">↳ 전날 미완료</button>
+          </div>
+        </div>
+        <div class="label">Brain Dump <span class="count" id="dumpcount"></span></div>
+        <div class="items">
+          <div id="dumplist"></div>
+          <div class="addrow">
+            <button class="ghost" id="adddump">+ 메모 추가</button>
+            <button class="ghost" id="pushdump" title="완료하지 않은 메모를 다음날로 넘기기">↦ 미완료 다음날로</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span id="status">불러오는 중…</span>
+      <span id="syncinfo"></span>
+      <span class="right">
+        <button class="ghost" id="syncbtn">클라우드 폴더 연결</button>
+        <button class="ghost" id="exportbtn">백업 파일 저장</button>
+        <button class="ghost" id="importbtn">백업 불러오기</button>
+        <button class="ghost" id="archbtn">지난 기록</button>
+        <button class="ghost" id="printbtn">인쇄 / PDF</button>
+        <input type="file" id="file" accept="application/json,.json" style="display:none">
+      </span>
+    </div>
+    <div class="archive" id="archive">
+      <span class="eyebrow" style="margin:0">저장된 날짜</span>
+      <div class="arch-list" id="archlist"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const HOURS = []; for (let h = 8; h <= 22; h++) HOURS.push(h);
+  const SEG = 6, N = HOURS.length * SEG, NCOL = 20;
+  const COLORS = ["",
+    "#2a4bc4", "#1c8f52", "#d08610", "#6b46d0", "#c4402f",
+    "#0e8a9b", "#b03a7a", "#5a6470", "#7a8f14", "#c25e00",
+    "#1667b8", "#0f7a63", "#8a3ea8", "#a8172f", "#4a5db0",
+    "#2f8f3a", "#b8801f", "#7c4a2a", "#d1476f", "#3a6b7d"];
+  const $ = (s) => document.querySelector(s);
+  const pad = (n) => String(n).padStart(2, "0");
+  const keyOf = (d) => "day:" + d;
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const todayStr = () => { const n = new Date(); return n.getFullYear() + "-" + pad(n.getMonth() + 1) + "-" + pad(n.getDate()); };
+
+  const hasStore = !!(window.storage && window.storage.get);
+  let ls = null;
+  if (!hasStore) {
+    try { window.localStorage.setItem("__tbp__", "1"); window.localStorage.removeItem("__tbp__"); ls = window.localStorage; }
+    catch (e) { ls = null; }
+  }
+  const BACKEND = hasStore ? "cloud" : (ls ? "local" : "memory");
+  const PFX = "tbp:";
+  const mem = {};
+  const store = {
+    async get(k) {
+      if (hasStore) { try { return await window.storage.get(k); } catch (e) { return null; } }
+      if (ls) { const v = ls.getItem(PFX + k); return v === null ? null : { key: k, value: v }; }
+      return mem[k] || null;
+    },
+    async set(k, v) {
+      if (hasStore) { const r = await window.storage.set(k, v); return !!r; }
+      if (ls) { ls.setItem(PFX + k, v); return true; }
+      mem[k] = { key: k, value: v }; return true;
+    },
+    async list(p) {
+      if (hasStore) { try { const r = await window.storage.list(p); return (r && r.keys) || []; } catch (e) { return []; } }
+      if (ls) {
+        const out = [];
+        for (let i = 0; i < ls.length; i++) {
+          const k = ls.key(i);
+          if (k && k.indexOf(PFX + p) === 0) out.push(k.slice(PFX.length));
+        }
+        return out;
+      }
+      return Object.keys(mem);
+    }
+  };
+
+  let date = todayStr(), day = blank(), dirty = false, timer = null;
+  let sel = null, eraseMode = false;
+  let painting = false, paintVal = "0";
+
+  function emptyBlocks() { const a = new Array(N); for (let i = 0; i < N; i++) a[i] = "0"; return a; }
+  function blank() { return { v: 4, blocks: emptyBlocks(), notes: {}, todos: [], dumps: [] }; }
+  function nextColor() {
+    const used = day.todos.concat(day.dumps).map((x) => x.c);
+    for (let i = 1; i <= NCOL; i++) if (used.indexOf(i) < 0) return i;
+    return (used.length % NCOL) + 1;
+  }
+  /* 항목 ID -> { 번호, 색 } */
+  function itemMap() {
+    const m = {};
+    day.todos.concat(day.dumps).forEach((x, i) => { m[x.u] = { n: i + 1, c: x.c }; });
+    return m;
+  }
+
+  /* ---------- grid ---------- */
+  const grid = $("#grid");
+  HOURS.forEach((h, r) => {
+    const row = document.createElement("div");
+    row.className = "row" + (h % 6 === 0 ? " mark" : "");
+    const hr = document.createElement("div");
+    hr.className = "hr"; hr.textContent = h;
+    row.appendChild(hr);
+    for (let c = 0; c < SEG; c++) {
+      const cell = document.createElement("div");
+      cell.className = "cell"; cell.dataset.v = "0"; cell.dataset.i = r * SEG + c;
+      cell.setAttribute("role", "gridcell");
+      cell.setAttribute("aria-label", pad(h % 24) + ":" + pad(c * 10));
+      row.appendChild(cell);
+    }
+    const note = document.createElement("input");
+    note.type = "text"; note.className = "note"; note.dataset.h = h; note.placeholder = "…";
+    note.addEventListener("input", () => {
+      if (note.value.trim()) day.notes[h] = note.value; else delete day.notes[h];
+      queue();
+    });
+    row.appendChild(note);
+    grid.appendChild(row);
+  });
+
+  function paintCell(el, m) {
+    const v = day.blocks[+el.dataset.i] || "0";
+    el.dataset.v = v;
+    const info = (v !== "0") ? m[v] : null;
+    el.style.backgroundColor = info ? COLORS[info.c] : "";
+    el.textContent = info ? String(info.n) : "";
+  }
+  function setCell(el, v) {
+    if (!el || el.dataset.v === String(v)) return;
+    day.blocks[+el.dataset.i] = String(v);
+    paintCell(el, itemMap());
+    totals(); queue();
+  }
+  function cellAt(x, y) { const el = document.elementFromPoint(x, y); return el && el.classList && el.classList.contains("cell") ? el : null; }
+
+  grid.addEventListener("pointerdown", (e) => {
+    const el = e.target.closest(".cell"); if (!el) return;
+    e.preventDefault();
+    let want = 0;
+    if (!eraseMode) {
+      const it = selItem();
+      if (!it) { flash("먼저 오른쪽에서 할 일이나 메모를 하나 고르세요"); return; }
+      want = it.u;
+    }
+    painting = true;
+    const cur = el.dataset.v;
+    paintVal = (want && cur === want) ? "0" : (want || "0");
+    setCell(el, paintVal);
+  });
+  window.addEventListener("pointermove", (e) => { if (painting) setCell(cellAt(e.clientX, e.clientY), paintVal); });
+  window.addEventListener("pointerup", () => { painting = false; });
+  window.addEventListener("pointercancel", () => { painting = false; });
+
+  /* ---------- items ---------- */
+  function selItem() {
+    if (!sel) return null;
+    return day.todos.concat(day.dumps).find((x) => x.u === sel) || null;
+  }
+  function labelCells() {
+    const m = itemMap();
+    grid.querySelectorAll(".cell").forEach((el) => paintCell(el, m));
+  }
+  function minsFor(u) { let n = 0; for (let i = 0; i < N; i++) if (day.blocks[i] === u) n++; return n * 10; }
+  function fmt(min) {
+    if (!min) return "";
+    const h = Math.floor(min / 60), m = min % 60;
+    return (h ? h + "h" : "") + (m ? (h ? " " : "") + m + "m" : "");
+  }
+
+  function drawList(kind) {
+    const arr = kind === "todo" ? day.todos : day.dumps;
+    const box = kind === "todo" ? $("#todolist") : $("#dumplist");
+    box.innerHTML = "";
+    arr.forEach((t, i) => {
+      const row = document.createElement("div");
+      row.className = "item c" + t.c + (t.d ? " done" : "") + (sel === t.u ? " sel" : "");
+      row.addEventListener("pointerdown", () => { sel = t.u; refreshSel(); });
+
+      const bx = document.createElement("button");
+      bx.className = "box"; bx.setAttribute("aria-label", "완료 표시");
+      bx.addEventListener("click", (e) => { e.stopPropagation(); t.d = !t.d; drawList(kind); counts(); refreshSel(); queue(); });
+      row.appendChild(bx);
+
+      const inp = document.createElement("input");
+      inp.type = "text"; inp.value = t.t;
+      inp.placeholder = kind === "todo" ? "할 일" : "떠오르는 것";
+      inp.addEventListener("input", () => { t.t = inp.value; counts(); refreshSel(); queue(); });
+      inp.addEventListener("focus", () => { sel = t.u; refreshSel(); });
+      inp.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); addItem(kind); }
+        if (e.key === "Backspace" && !inp.value && arr.length > 1) {
+          e.preventDefault(); arr.splice(i, 1);
+          for (let k = 0; k < N; k++) if (day.blocks[k] === t.u) day.blocks[k] = "0";
+          drawList(kind); counts(); totals(); queue();
+          const all = box.querySelectorAll('input[type=text]');
+          if (all[Math.max(0, i - 1)]) all[Math.max(0, i - 1)].focus();
+        }
+      });
+      row.appendChild(inp);
+
+      const mins = document.createElement("span");
+      mins.className = "mins"; mins.textContent = fmt(minsFor(t.u));
+      row.appendChild(mins);
+
+      if (kind === "todo") {
+        const mv = document.createElement("button");
+        mv.className = "mv"; mv.textContent = "→ 메모";
+        mv.title = "이 할 일을 Brain Dump로 되돌리기";
+        mv.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (!t.t.trim()) { flash("내용을 먼저 적어주세요"); return; }
+          day.todos.splice(i, 1);
+          day.dumps.push({ u: t.u, t: t.t, d: !!t.d, c: t.c });
+          if (!day.todos.length) day.todos = [{ u: uid(), t: "", d: false, c: 1 }];
+          sel = t.u;
+          drawList("todo"); drawList("dump"); counts(); totals(); refreshSel(); queue();
+          flash("Brain Dump로 옮겼습니다");
+        });
+        row.appendChild(mv);
+      }
+
+      if (kind === "dump") {
+        const mv = document.createElement("button");
+        mv.className = "mv"; mv.textContent = "→ 할 일";
+        mv.title = "이 메모를 할 일 목록으로 옮기기";
+        mv.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (!t.t.trim()) { flash("내용을 먼저 적어주세요"); return; }
+          day.dumps.splice(i, 1);
+          day.todos.push({ u: t.u, t: t.t, d: !!t.d, c: t.c });
+          if (!day.dumps.length) day.dumps = [{ u: uid(), t: "", d: false, c: 8 }];
+          sel = t.u;
+          drawList("dump"); drawList("todo"); counts(); totals(); refreshSel(); queue();
+          flash("할 일로 옮겼습니다");
+        });
+        row.appendChild(mv);
+      }
+
+      const dot = document.createElement("button");
+      dot.className = "dot"; dot.setAttribute("aria-label", "색 바꾸기");
+      dot.style.backgroundColor = COLORS[t.c] || "var(--rule)";
+      dot.textContent = String((kind === "todo" ? 0 : day.todos.length) + i + 1);
+      dot.addEventListener("click", (e) => { e.stopPropagation(); openPal(row, t, kind); });
+      row.appendChild(dot);
+
+      const del = document.createElement("button");
+      del.className = "del"; del.textContent = "×"; del.setAttribute("aria-label", "삭제");
+      del.addEventListener("click", (e) => {
+        e.stopPropagation();
+        arr.splice(i, 1);
+        for (let k = 0; k < N; k++) if (day.blocks[k] === t.u) day.blocks[k] = "0";
+        if (sel === t.u) sel = null;
+        if (!arr.length) arr.push({ u: uid(), t: "", d: false, c: kind === "todo" ? 1 : 8 });
+        drawList(kind); counts(); totals(); refreshSel(); queue();
+      });
+      row.appendChild(del);
+      box.appendChild(row);
+    });
+  }
+
+  function openPal(row, item, kind) {
+    const old = row.querySelector(".pal"); document.querySelectorAll(".pal").forEach((p) => p.remove());
+    if (old) return;
+    const pal = document.createElement("div"); pal.className = "pal";
+    for (let i = 1; i <= NCOL; i++) {
+      const b = document.createElement("button");
+      b.style.background = COLORS[i];
+      if (item.c === i) b.className = "on";
+      b.setAttribute("aria-label", "색 " + i);
+      b.addEventListener("click", (e) => {
+        e.stopPropagation(); item.c = i; sel = item.u;
+        pal.remove(); drawList(kind); refreshSel(); queue();
+      });
+      pal.appendChild(b);
+    }
+    row.appendChild(pal);
+  }
+  document.addEventListener("pointerdown", (e) => {
+    if (!e.target.closest(".pal") && !e.target.closest(".dot")) document.querySelectorAll(".pal").forEach((p) => p.remove());
+  }, true);
+
+  function addItem(kind) {
+    const arr = kind === "todo" ? day.todos : day.dumps;
+    const it = { u: uid(), t: "", d: false, c: nextColor() };
+    arr.push(it); sel = it.u;
+    drawList(kind); refreshSel(); 
+    const box = kind === "todo" ? $("#todolist") : $("#dumplist");
+    const all = box.querySelectorAll('input[type=text]');
+    if (all.length) all[all.length - 1].focus();
+    queue();
+  }
+  $("#addtodo").addEventListener("click", () => addItem("todo"));
+  $("#adddump").addEventListener("click", () => addItem("dump"));
+
+  $("#pushdump").addEventListener("click", async () => {
+    if (dirty) { clearTimeout(timer); await save(); }
+    const open = day.dumps.filter((x) => !x.d && x.t.trim());
+    if (!open.length) { flash("넘길 미완료 메모가 없습니다"); return; }
+    const nd = new Date(date + "T12:00:00"); nd.setDate(nd.getDate() + 1);
+    const next = nd.getFullYear() + "-" + pad(nd.getMonth() + 1) + "-" + pad(nd.getDate());
+    const rec = await store.get(keyOf(next));
+    let obj = null;
+    if (rec && rec.value) { try { obj = JSON.parse(rec.value); } catch (e) { obj = null; } }
+    if (!obj) obj = { v: 4, blocks: emptyBlocks(), notes: {}, todos: [], dumps: [] };
+    if (!Array.isArray(obj.dumps)) obj.dumps = [];
+    const have = obj.dumps.map((x) => (x.t || "").trim());
+    let n = 0;
+    open.forEach((x) => {
+      if (have.indexOf(x.t.trim()) >= 0) return;
+      obj.dumps.push({ u: uid(), t: x.t, d: false, c: x.c });
+      have.push(x.t.trim());
+      n++;
+    });
+    if (!n) { flash("이미 다음날에 들어 있습니다"); return; }
+    obj.updatedAt = new Date().toISOString();
+    try {
+      await store.set(keyOf(next), JSON.stringify(obj));
+      schedulePush();
+      flash(next + " 로 " + n + "개를 넘겼습니다");
+    } catch (e) { flash("넘기지 못했습니다"); }
+  });
+
+  $("#eraser").addEventListener("click", () => {
+    eraseMode = !eraseMode;
+    $("#eraser").setAttribute("aria-pressed", eraseMode);
+    refreshSel();
+  });
+
+  function refreshSel() {
+    document.querySelectorAll(".item").forEach((el) => el.classList.remove("sel"));
+    const it = selItem();
+    const np = $("#nowpen");
+    const tIdx = day.todos.findIndex((x) => x.u === sel);
+    const dIdx = day.dumps.findIndex((x) => x.u === sel);
+    const num = tIdx >= 0 ? tIdx + 1 : (dIdx >= 0 ? day.todos.length + dIdx + 1 : 0);
+    if (eraseMode) {
+      np.querySelector(".swatch").style.background = "repeating-linear-gradient(45deg,#ded9ce 0 5px,transparent 5px 10px)";
+      np.querySelector(".txt").textContent = "지우는 중";
+    } else if (it) {
+      np.querySelector(".swatch").style.background = COLORS[it.c];
+      np.querySelector(".txt").textContent = (num ? num + ". " : "") + (it.t.trim() || "(이름 없음)");
+    } else {
+      np.querySelector(".swatch").style.background = "var(--rule)";
+      np.querySelector(".txt").textContent = "선택 없음";
+    }
+    if (!eraseMode && tIdx >= 0) { const r = $("#todolist").children[tIdx]; if (r) r.classList.add("sel"); }
+    if (!eraseMode && dIdx >= 0) { const r = $("#dumplist").children[dIdx]; if (r) r.classList.add("sel"); }
+    labelCells();
+  }
+
+  function counts() {
+    const done = day.todos.filter((t) => t.d && t.t.trim()).length;
+    const all = day.todos.filter((t) => t.t.trim()).length;
+    $("#todocount").textContent = all ? done + " / " + all + " 완료" : "";
+    const dDone = day.dumps.filter((t) => t.d && t.t.trim()).length;
+    const dAll = day.dumps.filter((t) => t.t.trim()).length;
+    $("#dumpcount").textContent = dAll ? dDone + " / " + dAll + " 완료" : "";
+  }
+  function totals() {
+    let used = 0; for (let i = 0; i < N; i++) if (day.blocks[i] !== "0") used++;
+    $("#planned").textContent = used ? fmt(used * 10) + " 계획됨" : "";
+    labelCells();
+    document.querySelectorAll("#todolist .item, #dumplist .item").forEach((row, i) => {
+      const list = row.parentElement.id === "todolist" ? day.todos : day.dumps;
+      const idx = Array.prototype.indexOf.call(row.parentElement.children, row);
+      const it = list[idx]; if (!it) return;
+      const m = row.querySelector(".mins"); if (m) m.textContent = fmt(minsFor(it.u));
+    });
+  }
+
+  /* ---------- save / load ---------- */
+  const status = $("#status");
+  function setStatus(t, c) { status.textContent = t; status.className = c || ""; }
+  function stamp() { const n = new Date(); return pad(n.getHours()) + ":" + pad(n.getMinutes()); }
+  function flash(msg) {
+    setStatus(msg, "saving");
+    setTimeout(() => setStatus(dirty ? "저장 대기 중" : "저장됨 · " + stamp(), ""), 2200);
+  }
+  function queue() { dirty = true; setStatus("입력 중…", "saving"); clearTimeout(timer); timer = setTimeout(save, 700); }
+
+  async function save() {
+    const target = date;
+    setStatus("저장 중…", "saving");
+    try {
+      const clean = (a) => a.filter((x) => x.t.trim()).map((x) => ({ u: x.u, t: x.t, d: !!x.d, c: x.c }));
+      const payload = JSON.stringify({ v: 4, updatedAt: new Date().toISOString(), blocks: day.blocks, notes: day.notes, todos: clean(day.todos), dumps: clean(day.dumps) });
+      const ok = await store.set(keyOf(target), payload);
+      if (!ok) throw new Error("no result");
+      schedulePush();
+      dirty = false;
+      if (BACKEND === "memory") setStatus("이 창에서만 임시 저장됨", "fail");
+      else setStatus((BACKEND === "local" ? "이 브라우저에 저장됨 · " : "저장됨 · ") + stamp(), "");
+    } catch (e) {
+      setStatus("저장 실패 — 잠시 후 다시 시도합니다", "fail");
+      clearTimeout(timer); timer = setTimeout(save, 4000);
+    }
+  }
+
+  async function load(d) {
+    if (dirty) { clearTimeout(timer); await save(); }
+    date = d; sel = null; eraseMode = false;
+    $("#eraser").setAttribute("aria-pressed", "false");
+    setStatus("불러오는 중…", "saving");
+    const rec = await store.get(keyOf(d));
+    day = blank();
+    if (rec && rec.value) {
+      try {
+        const p = JSON.parse(rec.value);
+        day.notes = p.notes || {};
+        const norm = (a) => (Array.isArray(a) ? a : []).map((x, i) => ({ u: x.u || uid(), t: x.t || "", d: !!x.d, c: x.c || ((i % NCOL) + 1) }));
+        day.todos = norm(p.todos);
+        day.dumps = norm(p.dumps);
+        if (Array.isArray(p.blocks)) {
+          const b = p.blocks.slice(0, N);
+          while (b.length < N) b.push("0");
+          day.blocks = b.map((x) => (x == null ? "0" : String(x)));
+        } else {
+          /* 예전 형식(칸에 색 번호) -> 항목 ID로 변환 */
+          let old = String(p.blocks || "");
+          if (old.length === 126) old = old.slice(24, 24 + N);   /* 4~24시 -> 8~22시 */
+          old = old.padEnd(N, "0").slice(0, N);
+          const byColor = {};
+          day.todos.concat(day.dumps).forEach((x) => { if (byColor[x.c] === undefined) byColor[x.c] = x.u; });
+          day.blocks = emptyBlocks();
+          for (let i = 0; i < N; i++) {
+            const c = +old[i];
+            if (c && byColor[c]) day.blocks[i] = byColor[c];
+          }
+        }
+        if (!p.dumps && typeof p.dump === "string" && p.dump.trim()) {
+          day.dumps = p.dump.split("\n").filter((l) => l.trim()).map((l, i) => ({ u: uid(), t: l, d: false, c: (i % NCOL) + 1 }));
+        }
+      } catch (e) { /* keep blank */ }
+    }
+    if (!day.todos.length) day.todos = [{ u: uid(), t: "", d: false, c: 1 }];
+    if (!day.dumps.length) day.dumps = [{ u: uid(), t: "", d: false, c: 8 }];
+    render(); dirty = false;
+    if (BACKEND === "memory") setStatus("저장 기능을 쓸 수 없는 환경입니다 — 백업 저장을 이용하세요", "fail");
+    else setStatus(rec ? "저장됨 · 기록 있음" : "새 기록 — 입력하면 자동 저장됩니다", "");
+  }
+
+  function render() {
+    labelCells();
+    grid.querySelectorAll(".note").forEach((el) => { el.value = day.notes[el.dataset.h] || ""; });
+    drawList("todo"); drawList("dump");
+    counts(); totals(); header(); refreshSel(); nowMark();
+  }
+
+  function header() {
+    const [y, m, dd] = date.split("-");
+    $("#bigdate").innerHTML = y + '<span class="sep">.</span>' + m + '<span class="sep">.</span>' + dd;
+    $("#picker").value = date;
+    const wd = new Date(date + "T12:00:00").getDay();
+    $("#dow").innerHTML = ["S", "M", "T", "W", "T", "F", "S"].map((c, i) => '<span class="' + (i === wd ? "on" : "") + '">' + c + "</span>").join("");
+  }
+
+  function nowMark() {
+    grid.querySelectorAll(".row.now").forEach((r) => r.classList.remove("now"));
+    grid.querySelectorAll(".cell.tick").forEach((c) => c.classList.remove("tick"));
+    if (date !== todayStr()) return;
+    const n = new Date();
+    const r = HOURS.indexOf(n.getHours()); if (r < 0) return;
+    const row = grid.children[r]; if (!row) return;
+    row.classList.add("now");
+    const cell = row.querySelector('[data-i="' + (r * SEG + Math.floor(n.getMinutes() / 10)) + '"]');
+    if (cell) cell.classList.add("tick");
+  }
+  setInterval(nowMark, 30000);
+
+  /* ---------- navigation ---------- */
+  function shift(n) {
+    const d = new Date(date + "T12:00:00"); d.setDate(d.getDate() + n);
+    load(d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()));
+  }
+  $("#prev").addEventListener("click", () => shift(-1));
+  $("#next").addEventListener("click", () => shift(1));
+  $("#today").addEventListener("click", () => load(todayStr()));
+  $("#picker").addEventListener("change", (e) => { if (e.target.value) load(e.target.value); });
+  $("#printbtn").addEventListener("click", () => window.print());
+
+  $("#carry").addEventListener("click", async () => {
+    const d = new Date(date + "T12:00:00"); d.setDate(d.getDate() - 1);
+    const prev = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    const rec = await store.get(keyOf(prev));
+    if (!rec) { flash("전날 기록이 없습니다"); return; }
+    let data; try { data = JSON.parse(rec.value); } catch (e) { return; }
+    const open = (data.todos || []).filter((t) => !t.d && (t.t || "").trim());
+    if (!open.length) { flash("전날 미완료 항목이 없습니다"); return; }
+    day.todos = day.todos.filter((t) => t.t.trim()).concat(open.map((t) => ({ u: uid(), t: t.t, d: false, c: t.c || 1 })));
+    drawList("todo"); counts(); totals(); queue();
+  });
+
+  const archive = $("#archive");
+  $("#archbtn").addEventListener("click", async () => {
+    archive.classList.toggle("open");
+    if (!archive.classList.contains("open")) return;
+    const keys = await store.list("day:");
+    const days = keys.map((k) => k.replace("day:", "")).sort().reverse();
+    const box = $("#archlist"); box.innerHTML = "";
+    if (!days.length) { box.innerHTML = '<div class="arch-empty">아직 저장된 날짜가 없습니다.</div>'; return; }
+    days.forEach((d) => {
+      const b = document.createElement("button"); b.textContent = d;
+      if (d === date) b.className = "cur";
+      b.addEventListener("click", () => { load(d); archive.classList.remove("open"); });
+      box.appendChild(b);
+    });
+  });
+
+  $("#exportbtn").addEventListener("click", async () => {
+    if (dirty) { clearTimeout(timer); await save(); }
+    const keys = await store.list("day:");
+    const out = { app: "daily-timebox", v: 2, exported: new Date().toISOString(), days: {} };
+    let n = 0;
+    for (const k of keys) {
+      const r = await store.get(k);
+      if (!r || !r.value) continue;
+      try { out.days[k.replace("day:", "")] = JSON.parse(r.value); n++; } catch (e) { /* skip */ }
+    }
+    if (!n) { flash("저장된 기록이 없습니다"); return; }
+    try {
+      const url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: "application/json" }));
+      const a = document.createElement("a");
+      a.href = url; a.download = "timebox-backup-" + todayStr() + ".json";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+      flash(n + "일치 기록을 파일로 내려받았습니다");
+    } catch (e) { flash("내려받기가 차단되었습니다"); }
+  });
+
+  $("#importbtn").addEventListener("click", () => $("#file").click());
+  $("#file").addEventListener("change", (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = async () => {
+      try {
+        const data = JSON.parse(rd.result);
+        const changed = await mergeIn(data, true);
+        dirty = false;
+        await load(date);
+        if (fileHandle) await pushFile();
+        flash(changed.length + "일치 기록을 불러왔습니다");
+      } catch (err) { flash("파일 형식이 올바르지 않습니다"); }
+      e.target.value = "";
+    };
+    rd.readAsText(f);
+  });
+
+  /* ---------- 클라우드 폴더 파일 동기화 ---------- */
+  const CAN_SYNC = typeof window.showSaveFilePicker === "function";
+  let fileHandle = null, lastMtime = 0, pushTimer = null, syncing = false;
+
+  function idb() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open("tbp-sync", 1);
+      r.onupgradeneeded = () => { r.result.createObjectStore("kv"); };
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+  }
+  async function idbGet(k) {
+    try {
+      const d = await idb();
+      return await new Promise((res, rej) => {
+        const q = d.transaction("kv", "readonly").objectStore("kv").get(k);
+        q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
+      });
+    } catch (e) { return null; }
+  }
+  async function idbSet(k, v) {
+    try {
+      const d = await idb();
+      await new Promise((res, rej) => {
+        const q = d.transaction("kv", "readwrite").objectStore("kv").put(v, k);
+        q.onsuccess = () => res(); q.onerror = () => rej(q.error);
+      });
+    } catch (e) { /* ignore */ }
+  }
+
+  async function collect() {
+    const keys = await store.list("day:");
+    const days = {};
+    for (const k of keys) {
+      const r = await store.get(k);
+      if (!r || !r.value) continue;
+      try { days[k.replace("day:", "")] = JSON.parse(r.value); } catch (e) { /* skip */ }
+    }
+    return { app: "daily-timebox", v: 2, exported: new Date().toISOString(), days: days };
+  }
+
+  /* 날짜별로 더 최근에 수정된 쪽을 남긴다 */
+  async function mergeIn(data, force) {
+    const days = (data && data.days) || {};
+    const changed = [];
+    for (const d in days) {
+      const inc = days[d];
+      if (!inc) continue;
+      const cur = await store.get(keyOf(d));
+      let curObj = null;
+      if (cur && cur.value) { try { curObj = JSON.parse(cur.value); } catch (e) { curObj = null; } }
+      const wins = force || !curObj || String(inc.updatedAt || "") > String(curObj.updatedAt || "");
+      if (wins) { await store.set(keyOf(d), JSON.stringify(inc)); changed.push(d); }
+    }
+    return changed;
+  }
+
+  async function ensurePerm(mode) {
+    if (!fileHandle) return false;
+    try {
+      const opt = { mode: mode };
+      if ((await fileHandle.queryPermission(opt)) === "granted") return true;
+      return (await fileHandle.requestPermission(opt)) === "granted";
+    } catch (e) { return false; }
+  }
+
+  async function pullFile(silent) {
+    if (!fileHandle || syncing) return [];
+    syncing = true;
+    try {
+      if (!(await ensurePerm("readwrite"))) { syncInfo("권한 필요"); return []; }
+      const f = await fileHandle.getFile();
+      lastMtime = f.lastModified;
+      const txt = await f.text();
+      if (!txt.trim()) return [];
+      let data; try { data = JSON.parse(txt); } catch (e) { return []; }
+      const changed = await mergeIn(data, false);
+      if (changed.indexOf(date) >= 0) { dirty = false; await load(date); }
+      if (changed.length && !silent) flash(changed.length + "일치 기록을 가져왔습니다");
+      return changed;
+    } catch (e) { return []; } finally { syncing = false; }
+  }
+
+  async function pushFile() {
+    if (!fileHandle) return;
+    try {
+      if (!(await ensurePerm("readwrite"))) { syncInfo("권한 필요"); return; }
+      const w = await fileHandle.createWritable();
+      await w.write(JSON.stringify(await collect(), null, 1));
+      await w.close();
+      const f = await fileHandle.getFile();
+      lastMtime = f.lastModified;
+      syncInfo("동기화됨 · " + stamp(), true);
+    } catch (e) { syncInfo("동기화 실패"); }
+  }
+  function schedulePush() {
+    if (!fileHandle) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(pushFile, 1500);
+  }
+  function syncInfo(msg, ok) {
+    const el = $("#syncinfo");
+    el.textContent = msg ? "⇅ " + msg : "";
+    el.className = ok ? "on" : "";
+  }
+
+  async function connectFile() {
+    try {
+      const h = await window.showSaveFilePicker({
+        suggestedName: "timebox-data.json",
+        types: [{ description: "타임박스 기록", accept: { "application/json": [".json"] } }]
+      });
+      fileHandle = h;
+      await idbSet("handle", h);
+      $("#syncbtn").textContent = "동기화 해제";
+      if (dirty) { clearTimeout(timer); await save(); }
+      await pullFile(true);
+      await pushFile();
+      flash("클라우드 파일과 연결되었습니다");
+    } catch (e) { /* 사용자가 취소 */ }
+  }
+
+  if (!CAN_SYNC) {
+    $("#syncbtn").style.display = "none";
+  } else {
+    $("#syncbtn").addEventListener("click", async () => {
+      if (fileHandle) {
+        fileHandle = null; await idbSet("handle", null);
+        $("#syncbtn").textContent = "클라우드 폴더 연결";
+        syncInfo("");
+        flash("동기화를 껐습니다");
+      } else { connectFile(); }
+    });
+    idbGet("handle").then(async (h) => {
+      if (!h) return;
+      fileHandle = h;
+      $("#syncbtn").textContent = "동기화 해제";
+      let granted = false;
+      try { granted = (await h.queryPermission({ mode: "readwrite" })) === "granted"; } catch (e) { granted = false; }
+      if (granted) { syncInfo("연결됨", true); await pullFile(true); }
+      else { syncInfo("연결됨 — 버튼을 눌러 권한 확인"); $("#syncbtn").textContent = "동기화 다시 연결"; }
+    });
+    /* 다른 기기가 파일을 바꿨는지 주기적으로 확인 */
+    setInterval(async () => {
+      if (!fileHandle || document.hidden || syncing || dirty) return;
+      try {
+        const f = await fileHandle.getFile();
+        if (f.lastModified > lastMtime + 500) await pullFile(false);
+      } catch (e) { /* ignore */ }
+    }, 20000);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && fileHandle && !dirty) pullFile(true); });
+  }
+
+  window.addEventListener("beforeunload", () => { if (dirty) save(); });
+  load(date);
+})();
+</script>
