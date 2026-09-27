@@ -1,3 +1,15 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>데일리 타임박스</title>
+<style>
+  html, body { margin:0; padding:0; background:#d8d9d0; }
+  body { -webkit-tap-highlight-color: transparent; }
+</style>
+</head>
+<body>
 <div id="app">
   <style>
     #app {
@@ -121,7 +133,10 @@
     .hr {
       font-family: var(--mono); font-size: 17px; color: var(--muted);
       display: grid; place-items: center; justify-content: end; padding-right: 10px;
+      cursor: pointer; user-select: none;
     }
+    .hr:hover { color: var(--ink); }
+    .row.noteopen .hr { color: var(--ink); font-weight: 600; }
     .row.now .hr { color: var(--ink); font-weight: 600; }
     .row.now .hr::before {
       content: ""; position: absolute; left: 0; top: 0; bottom: 0;
@@ -130,12 +145,18 @@
     .cell {
       height: 33px; border-left: 1px solid var(--rule);
       touch-action: none; cursor: crosshair; transition: background-color .09s linear;
+      -webkit-user-select: none; -webkit-touch-callout: none;
       display: grid; place-items: center;
       font-family: var(--mono); font-size: 13px; font-weight: 600;
       color: #fff; text-shadow: 0 0 3px rgba(17,26,31,.55);
       user-select: none; -webkit-user-select: none;
     }
     .cell.tick { box-shadow: inset 0 0 0 2px var(--ink); }
+    .cell.rstart { box-shadow: inset 0 0 0 3px var(--ink); }
+    /* 손가락 기기에서는 시간표 위에서도 세로 스크롤이 되어야 합니다 */
+    @media (pointer: coarse) {
+      .cell { touch-action: pan-y; }
+    }
     .note {
       border: 0; border-left: 1px solid var(--rule-strong);
       background: transparent; font-family: var(--sans); font-size: 18px;
@@ -173,6 +194,12 @@
     }
     .item.done input[type=text] { color: var(--rule-strong); text-decoration: line-through; }
     .item .mins { font-family: var(--mono); font-size: 14px; color: var(--rule-strong); flex: none; }
+    .item .grip {
+      color: var(--rule-strong); font-size: 15px; cursor: grab;
+      user-select: none; flex: none; padding: 0 2px; opacity: 0;
+    }
+    .item:hover .grip { opacity: 1; }
+    .item .grip:active { cursor: grabbing; }
     .dot {
       width: 26px; height: 26px; flex: none; border-radius: 3px;
       border: 1px solid rgba(17,26,31,.18); cursor: pointer; padding: 0;
@@ -224,8 +251,166 @@
     }
     #status.saving::before { background: var(--p3); }
     #status.fail::before { background: var(--p5); }
+
+    /* ---------- 할 일 목록 패널 ---------- */
+    .tk-back {
+      position: fixed; inset: 0; z-index: 150;
+      background: rgba(17,26,31,.45);
+      display: grid; place-items: center; padding: 22px;
+    }
+    .tk-back[hidden] { display: none; }
+    .tk {
+      background: var(--sheet); border: 1px solid var(--rule-strong);
+      width: 100%; max-width: 940px; max-height: 88vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 28px 70px -34px rgba(17,26,31,.75);
+    }
+    .tk-top {
+      display: flex; align-items: flex-end; gap: 16px;
+      padding: 24px 26px 18px; border-bottom: 3px solid var(--ink);
+    }
+    .tk-title { margin: 0; font-size: 30px; font-weight: 700; letter-spacing: -.02em; }
+    .tk-x { margin-left: auto; font-size: 17px !important; padding: 7px 13px !important; }
+
+    .tk-bar {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding: 13px 26px; border-bottom: 1px solid var(--rule);
+      background: var(--sheet); position: sticky; top: 0; z-index: 2;
+    }
+    .tk-bar .ghost { font-size: 15px; padding: 8px 13px; }
+    .tk-all, .tk-hide { display: inline-flex; align-items: center; gap: 8px; font-size: 16px; color: var(--muted); cursor: pointer; }
+    .tk-all input, .tk-hide input { width: 17px; height: 17px; accent-color: var(--ink); cursor: pointer; }
+    .tk-sel { font-family: var(--mono); font-size: 13px; color: var(--rule-strong); }
+    .tk-bar-r { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .tk-body { overflow: auto; padding: 10px 26px 28px; flex: 1; }
+
+    .tk-cat { margin-top: 30px; }
+    .tk-cat:first-child { margin-top: 12px; }
+    .tk-cat.over > .tk-items { background: rgba(42,75,196,.07); box-shadow: inset 0 0 0 2px var(--p1); }
+    .tk-cat-h {
+      display: flex; align-items: baseline; gap: 12px;
+      padding: 4px 0 9px; border-bottom: 2px solid var(--ink);
+    }
+    .tk-cat-h .nm {
+      font-family: var(--sans); font-size: 22px; font-weight: 700;
+      letter-spacing: -.015em; color: var(--ink);
+      border: 0; background: transparent; padding: 1px 0; min-width: 40px; flex: 1;
+    }
+    .tk-cat-h .nm:hover { color: var(--p1); }
+    .tk-cat-h .nm:focus { outline: none; box-shadow: 0 2px 0 var(--p1); }
+    .tk-cat-h .n {
+      font-family: var(--mono); font-size: 14px; color: var(--rule-strong);
+      letter-spacing: .04em; flex: none;
+    }
+    .tk-cat-h .cx, .tk-cat-h .cm {
+      border: 0; background: transparent; cursor: pointer; padding: 2px 4px;
+      color: var(--rule-strong); font-size: 16px; line-height: 1; flex: none;
+      align-self: center;
+    }
+    .tk-cat-h .cx:hover { color: var(--p5); }
+    .tk-cat-h .cm:hover { color: var(--ink); }
+    .tk-items { min-height: 44px; padding: 4px 0 0; transition: background-color .1s; }
+
+    .tk-row {
+      display: flex; align-items: center; gap: 13px;
+      padding: 11px 8px 11px 4px; border-bottom: 1px solid var(--rule);
+      cursor: grab; background: var(--sheet);
+    }
+    .tk-row:last-child { border-bottom: 0; }
+    .tk-row:active { cursor: grabbing; }
+    .tk-row.drag { opacity: .35; }
+    .tk-row.done .tx { color: var(--rule-strong); text-decoration: line-through; }
+    .tk-row .grip { color: var(--rule-strong); font-size: 15px; cursor: grab; user-select: none; flex: none; }
+    .tk-row input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--ink); cursor: pointer; flex: none; }
+    .tk-row .tx {
+      flex: 1; min-width: 0; border: 0; background: transparent;
+      font-family: var(--sans); font-size: 17px; color: var(--ink); padding: 3px 0;
+      letter-spacing: -.005em;
+    }
+    .tk-row .due {
+      font-family: var(--mono); font-size: 14px; color: var(--muted);
+      border: 1px solid transparent; background: transparent; padding: 4px 6px;
+      border-radius: 3px; flex: none; width: 152px;
+    }
+    .tk-row .due:hover, .tk-row .due:focus { border-color: var(--rule-strong); }
+    .tk-row .due.soon { color: var(--p3); }
+    .tk-row .due.over { color: var(--p5); font-weight: 600; }
+    .tk-row .dx { border: 0; background: transparent; cursor: pointer; color: var(--rule-strong); font-size: 21px; line-height: 1; padding: 0 3px; opacity: 0; flex: none; }
+    .tk-row:hover .dx { opacity: 1; }
+    .tk-row .dx:hover { color: var(--p5); }
+    .tk-row { position: relative; }
+    .cat-menu {
+      position: absolute; left: 22px; top: calc(100% - 4px); z-index: 30;
+      background: var(--sheet); border: 1px solid var(--rule-strong);
+      padding: 5px; border-radius: 3px; min-width: 150px;
+      box-shadow: 0 12px 28px -14px rgba(17,26,31,.6);
+    }
+    .cat-menu button {
+      display: block; width: 100%; text-align: left;
+      border: 0; background: transparent; cursor: pointer;
+      font-family: var(--sans); font-size: 15px; color: var(--ink);
+      padding: 8px 11px; border-radius: 2px;
+    }
+    .cat-menu button:hover { background: var(--paper); }
+    .cat-menu button.on { color: var(--rule-strong); }
+    .cat-menu button.on::after { content: " ·"; }
+
+    .tk-add {
+      display: flex; gap: 9px; padding: 9px 4px 0;
+    }
+    .tk-add .ghost { font-size: 14px; padding: 7px 12px; }
+    .tk-foot #tkaddcat { font-size: 16px; padding: 9px 15px; }
+
+    .tk-foot {
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      padding: 14px 26px; border-top: 3px solid var(--ink);
+    }
+    .tk-note { margin-left: auto; font-size: 13px; color: var(--rule-strong); }
+    .tk-empty { font-size: 15px; color: var(--rule-strong); padding: 14px 4px; }
+
+    /* 오늘 목록끼리 끌어 옮기기 */
+    .items.over { background: rgba(42,75,196,.06); box-shadow: inset 0 0 0 2px var(--p1); }
+    .item.drag { opacity: .35; }
+
+    @media (max-width: 760px) {
+      .tk-back { padding: 0; }
+      .tk { max-width: none; max-height: 100vh; height: 100vh; border: 0; }
+      .tk-top, .tk-bar, .tk-body, .tk-foot { padding-left: 14px; padding-right: 14px; }
+      .tk-bar-r { margin-left: 0; width: 100%; }
+      .tk-cat-h .nm { font-size: 20px; }
+      .tk-cat { margin-top: 26px; }
+      .tk-title { font-size: 26px; }
+      .tk-row { flex-wrap: wrap; }
+      .tk-row .tx { flex: 1 1 auto; min-width: 110px; }
+      .tk-row .due { order: 10; flex: 1 1 100%; width: auto; margin-left: 30px; }
+      .tk-row .dx { opacity: 1; }
+      .tk-note { display: none; }
+    }
+    .modal-back {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(17,26,31,.45);
+      display: grid; place-items: center; padding: 20px;
+    }
+    .modal {
+      background: var(--sheet); border: 1px solid var(--rule-strong);
+      padding: 24px 26px; max-width: 460px; width: 100%;
+      box-shadow: 0 24px 60px -30px rgba(17,26,31,.7);
+      max-height: 90vh; overflow: auto;
+    }
+    .modal h3 { margin: 0 0 10px; font-size: 20px; font-weight: 600; }
+    .modal .mnote { font-size: 14px; color: var(--muted); line-height: 1.6; margin: 0 0 16px; }
+    .modal label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+    .modal input {
+      display: block; width: 100%; margin-top: 5px;
+      font-family: var(--mono); font-size: 15px; color: var(--ink);
+      border: 1px solid var(--rule-strong); background: transparent;
+      padding: 9px 11px; border-radius: 3px;
+    }
+    .modal .mrow { display: flex; gap: 9px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap; }
     #syncinfo { color: var(--rule-strong); }
     #syncinfo.on { color: var(--p2); }
+    #syncinfo.fail { color: var(--p5); }
     #syncinfo:empty { display: none; }
 
     .archive { display: none; border-top: 1px solid var(--rule); padding: 21px 39px 27px; }
@@ -249,7 +434,7 @@
     @media print {
       #app { background: #fff; padding: 0; }
       .sheet { box-shadow: none; border: 0; max-width: none; }
-      .nav, .foot, .archive, .item .del, .addrow, .penbar, .pal { display: none !important; }
+      .nav, .foot, .archive, .item .del, .item .mv, .item .grip, .addrow, .penbar, .pal, .tk-back { display: none !important; }
       .cell { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
     }
     @media (prefers-reduced-motion: reduce) { #app * { transition: none !important; } }
@@ -267,6 +452,7 @@
           <input type="date" id="picker">
           <button id="next" title="다음 날">›</button>
           <button id="today">오늘</button>
+          <button id="tasksbtn" title="유형별 할 일 목록 열기">할 일 목록</button>
         </div>
         <div class="dow" id="dow"></div>
       </div>
@@ -277,8 +463,9 @@
         <div class="label">Time Plan <span class="count" id="planned"></span></div>
         <div class="penbar">
           <span class="now-pen" id="nowpen"><span class="swatch"></span><span class="txt">—</span></span>
+          <button class="ghost" id="range" aria-pressed="false" title="시작 칸과 끝 칸을 눌러 한 번에 칠하기">범위</button>
           <button class="ghost" id="eraser" aria-pressed="false">지우개</button>
-          <span class="hint">오른쪽 항목을 클릭해 색을 고른 뒤, 표를 드래그하세요</span>
+          <span class="hint">항목을 클릭해 고른 뒤 표를 드래그하세요 · 범위를 켜면 시작·끝 칸만 눌러도 됩니다</span>
         </div>
         <div class="plan">
           <div class="colhead">
@@ -295,7 +482,7 @@
           <div id="todolist"></div>
           <div class="addrow">
             <button class="ghost" id="addtodo">+ 할 일 추가</button>
-            <button class="ghost" id="carry" title="전날 미완료 항목 가져오기">↳ 전날 미완료</button>
+            <button class="ghost" id="carry" title="지난 날짜의 완료되지 않은 할 일을 모두 가져오기">↳ 미완료 불러오기</button>
           </div>
         </div>
         <div class="label">Brain Dump <span class="count" id="dumpcount"></span></div>
@@ -303,7 +490,7 @@
           <div id="dumplist"></div>
           <div class="addrow">
             <button class="ghost" id="adddump">+ 메모 추가</button>
-            <button class="ghost" id="pushdump" title="완료하지 않은 메모를 다음날로 넘기기">↦ 미완료 다음날로</button>
+            <button class="ghost" id="pushdump" title="지난 날짜의 완료되지 않은 메모를 모두 가져오기">↳ 미완료 불러오기</button>
           </div>
         </div>
       </div>
@@ -313,7 +500,7 @@
       <span id="status">불러오는 중…</span>
       <span id="syncinfo"></span>
       <span class="right">
-        <button class="ghost" id="syncbtn">클라우드 폴더 연결</button>
+        <button class="ghost" id="ghbtn">GitHub 연결</button>
         <button class="ghost" id="exportbtn">백업 파일 저장</button>
         <button class="ghost" id="importbtn">백업 불러오기</button>
         <button class="ghost" id="archbtn">지난 기록</button>
@@ -324,6 +511,35 @@
     <div class="archive" id="archive">
       <span class="eyebrow" style="margin:0">저장된 날짜</span>
       <div class="arch-list" id="archlist"></div>
+    </div>
+  </div>
+
+  <div class="tk-back" id="tkback" hidden>
+    <div class="tk">
+      <div class="tk-top">
+        <div>
+          <span class="eyebrow">Task List</span>
+          <h2 class="tk-title">할 일 목록</h2>
+        </div>
+        <button class="ghost tk-x" id="tkclose" title="닫기">✕</button>
+      </div>
+
+      <div class="tk-bar">
+        <label class="tk-all"><input type="checkbox" id="tkall"> 전체 선택</label>
+        <span class="tk-sel" id="tksel">선택 없음</span>
+        <span class="tk-bar-r">
+          <button class="ghost" id="tk2todo">→ 오늘 To Do List</button>
+          <button class="ghost" id="tk2dump">→ 오늘 Brain Dump</button>
+        </span>
+      </div>
+
+      <div class="tk-body" id="tkbody"></div>
+
+      <div class="tk-foot">
+        <button class="ghost" id="tkaddcat">+ 유형 추가</button>
+        <label class="tk-hide"><input type="checkbox" id="tkhide"> 완료 항목 숨기기</label>
+        <span class="tk-note">항목을 끌어 다른 유형으로 옮길 수 있습니다</span>
+      </div>
     </div>
   </div>
 </div>
@@ -343,43 +559,49 @@
   const uid = () => Math.random().toString(36).slice(2, 9);
   const todayStr = () => { const n = new Date(); return n.getFullYear() + "-" + pad(n.getMonth() + 1) + "-" + pad(n.getDate()); };
 
-  const hasStore = !!(window.storage && window.storage.get);
+  /* ---------- 데이터는 메모리 DB 하나에 모으고, 브라우저와 GitHub 양쪽에 보관 ---------- */
+  const LKEY = "tbp:db";
+  let DB = {};                      /* { "2026-09-23": "{...json...}" } */
   let ls = null;
-  if (!hasStore) {
-    try { window.localStorage.setItem("__tbp__", "1"); window.localStorage.removeItem("__tbp__"); ls = window.localStorage; }
-    catch (e) { ls = null; }
-  }
-  const BACKEND = hasStore ? "cloud" : (ls ? "local" : "memory");
-  const PFX = "tbp:";
-  const mem = {};
-  const store = {
-    async get(k) {
-      if (hasStore) { try { return await window.storage.get(k); } catch (e) { return null; } }
-      if (ls) { const v = ls.getItem(PFX + k); return v === null ? null : { key: k, value: v }; }
-      return mem[k] || null;
-    },
-    async set(k, v) {
-      if (hasStore) { const r = await window.storage.set(k, v); return !!r; }
-      if (ls) { ls.setItem(PFX + k, v); return true; }
-      mem[k] = { key: k, value: v }; return true;
-    },
-    async list(p) {
-      if (hasStore) { try { const r = await window.storage.list(p); return (r && r.keys) || []; } catch (e) { return []; } }
-      if (ls) {
-        const out = [];
-        for (let i = 0; i < ls.length; i++) {
-          const k = ls.key(i);
-          if (k && k.indexOf(PFX + p) === 0) out.push(k.slice(PFX.length));
-        }
-        return out;
-      }
-      return Object.keys(mem);
+  try { window.localStorage.setItem("__t__", "1"); window.localStorage.removeItem("__t__"); ls = window.localStorage; }
+  catch (e) { ls = null; }
+
+  function loadLocal() {
+    if (!ls) return;
+    try { const raw = ls.getItem(LKEY); if (raw) DB = JSON.parse(raw) || {}; } catch (e) { DB = {}; }
+    /* 예전 방식(날짜마다 따로 저장)으로 쌓인 기록을 한 번만 옮겨옵니다 */
+    const old = [];
+    for (let i = 0; i < ls.length; i++) {
+      const k = ls.key(i);
+      if (k && k.indexOf("tbp:day:") === 0) old.push(k);
     }
+    if (old.length) {
+      old.forEach((k) => {
+        const d = k.slice("tbp:day:".length);
+        if (!DB[d]) { const v = ls.getItem(k); if (v) DB[d] = v; }
+      });
+      saveLocal();
+      old.forEach((k) => { try { ls.removeItem(k); } catch (e) {} });
+    }
+  }
+  function saveLocal() {
+    if (!ls) return;
+    try { ls.setItem(LKEY, JSON.stringify(DB)); } catch (e) { /* 용량 초과 */ }
+  }
+
+  const store = {
+    async get(k) { const d = k.replace("day:", ""); return DB[d] ? { key: k, value: DB[d] } : null; },
+    async set(k, v) { DB[k.replace("day:", "")] = v; saveLocal(); schedulePush(); return true; },
+    async list() { return Object.keys(DB).map((d) => "day:" + d); },
+    async all() { return Object.assign({}, DB); }
   };
 
   let date = todayStr(), day = blank(), dirty = false, timer = null;
   let sel = null, eraseMode = false;
-  let painting = false, paintVal = "0";
+  /* 손가락으로 쓰는 기기인지 — 항목을 고를 때 자판이 올라오지 않게 하는 데 씁니다 */
+  const COARSE = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+  let painting = false, paintVal = "0", paintStarted = false;
+  let rangeMode = false, rangeStart = null;
 
   function emptyBlocks() { const a = new Array(N); for (let i = 0; i < N; i++) a[i] = "0"; return a; }
   function blank() { return { v: 4, blocks: emptyBlocks(), notes: {}, todos: [], dumps: [] }; }
@@ -402,6 +624,7 @@
     row.className = "row" + (h % 6 === 0 ? " mark" : "");
     const hr = document.createElement("div");
     hr.className = "hr"; hr.textContent = h;
+    hr.title = "이 시간대 메모 열기/닫기";
     row.appendChild(hr);
     for (let c = 0; c < SEG; c++) {
       const cell = document.createElement("div");
@@ -435,23 +658,63 @@
   }
   function cellAt(x, y) { const el = document.elementFromPoint(x, y); return el && el.classList && el.classList.contains("cell") ? el : null; }
 
+  function penValue() {
+    if (eraseMode) return "0";
+    const it = selItem();
+    if (!it) { flash("먼저 할 일이나 메모를 하나 고르세요"); return null; }
+    return it.u;
+  }
+  function clearRangeMark() {
+    grid.querySelectorAll(".cell.rstart").forEach((x) => x.classList.remove("rstart"));
+  }
+  function fillRange(i0, i1, v) {
+    const a = Math.min(i0, i1), b = Math.max(i0, i1);
+    const m = itemMap();
+    for (let i = a; i <= b; i++) {
+      day.blocks[i] = v;
+      const el = grid.querySelector('[data-i="' + i + '"]');
+      if (el) paintCell(el, m);
+    }
+    totals(); queue();
+    return b - a + 1;
+  }
+
   grid.addEventListener("pointerdown", (e) => {
     const el = e.target.closest(".cell"); if (!el) return;
-    e.preventDefault();
-    let want = 0;
-    if (!eraseMode) {
-      const it = selItem();
-      if (!it) { flash("먼저 오른쪽에서 할 일이나 메모를 하나 고르세요"); return; }
-      want = it.u;
+
+    /* 범위 모드: 시작 칸 → 끝 칸 두 번 눌러 한 번에 칠합니다 */
+    if (rangeMode) {
+      e.preventDefault();
+      const want = penValue();
+      if (want === null) return;
+      const i = +el.dataset.i;
+      if (rangeStart === null) {
+        rangeStart = i;
+        clearRangeMark();
+        el.classList.add("rstart");
+        flash("끝나는 칸을 누르세요");
+      } else {
+        const n = fillRange(rangeStart, i, want);
+        rangeStart = null;
+        clearRangeMark();
+        flash(fmt(n * 10) + " 칠했습니다");
+      }
+      return;
     }
+
+    e.preventDefault();
+    const want = penValue();
+    if (want === null) return;
     painting = true;
+    paintStarted = true;
+    window.__tbPainting = true;
     const cur = el.dataset.v;
     paintVal = (want && cur === want) ? "0" : (want || "0");
     setCell(el, paintVal);
   });
   window.addEventListener("pointermove", (e) => { if (painting) setCell(cellAt(e.clientX, e.clientY), paintVal); });
-  window.addEventListener("pointerup", () => { painting = false; });
-  window.addEventListener("pointercancel", () => { painting = false; });
+  window.addEventListener("pointerup", () => { painting = false; paintStarted = false; window.__tbPainting = false; });
+  window.addEventListener("pointercancel", () => { painting = false; paintStarted = false; window.__tbPainting = false; });
 
   /* ---------- items ---------- */
   function selItem() {
@@ -476,7 +739,35 @@
     arr.forEach((t, i) => {
       const row = document.createElement("div");
       row.className = "item c" + t.c + (t.d ? " done" : "") + (sel === t.u ? " sel" : "");
-      row.addEventListener("pointerdown", () => { sel = t.u; refreshSel(); });
+      row.dataset.u = t.u;
+      row.addEventListener("pointerdown", (e) => {
+        const again = (sel === t.u);
+        sel = t.u; refreshSel();
+        if (!COARSE) return;
+        /* 손가락 기기: 처음 누르면 고르기만 하고 자판은 올라오지 않습니다.
+           이미 고른 항목을 다시 누르거나, 아직 비어 있는 줄이면 글자를 고칠 수 있게 엽니다. */
+        if (e.target !== inp) return;
+        if (again || !t.t.trim()) { openEdit(); return; }
+        /* 고르기만 할 때는 글상자에 들어가지 않게 막습니다 — 화면이 튀지 않습니다 */
+        e.preventDefault();
+        if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      });
+
+      const grip = document.createElement("span");
+      grip.className = "grip"; grip.textContent = "⠿";
+      grip.draggable = true;
+      grip.title = "끌어서 다른 목록으로 옮기기";
+      grip.addEventListener("dragstart", (e) => {
+        dragDay = { u: t.u, kind: kind };
+        row.classList.add("drag");
+        try {
+          e.dataTransfer.setData("text/plain", t.u);
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setDragImage(row, 20, row.offsetHeight / 2);
+        } catch (err) {}
+      });
+      grip.addEventListener("dragend", () => { dragDay = null; row.classList.remove("drag"); });
+      row.appendChild(grip);
 
       const bx = document.createElement("button");
       bx.className = "box"; bx.setAttribute("aria-label", "완료 표시");
@@ -486,8 +777,18 @@
       const inp = document.createElement("input");
       inp.type = "text"; inp.value = t.t;
       inp.placeholder = kind === "todo" ? "할 일" : "떠오르는 것";
+      if (COARSE) inp.readOnly = true;          /* 자판이 저절로 올라오지 않도록 */
+      function openEdit() {
+        inp.readOnly = false;
+        setTimeout(() => {
+          try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); }
+          try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (e) {}
+        }, 0);
+      }
+      inp.openEdit = openEdit;
       inp.addEventListener("input", () => { t.t = inp.value; counts(); refreshSel(); queue(); });
       inp.addEventListener("focus", () => { sel = t.u; refreshSel(); });
+      inp.addEventListener("blur", () => { if (COARSE) inp.readOnly = true; });
       inp.addEventListener("keydown", (e) => {
         if (e.key === "Enter") { e.preventDefault(); addItem(kind); }
         if (e.key === "Backspace" && !inp.value && arr.length > 1) {
@@ -495,7 +796,8 @@
           for (let k = 0; k < N; k++) if (day.blocks[k] === t.u) day.blocks[k] = "0";
           drawList(kind); counts(); totals(); queue();
           const all = box.querySelectorAll('input[type=text]');
-          if (all[Math.max(0, i - 1)]) all[Math.max(0, i - 1)].focus();
+          const prev = all[Math.max(0, i - 1)];
+          if (prev) { if (prev.openEdit) prev.openEdit(); else prev.focus(); }
         }
       });
       row.appendChild(inp);
@@ -588,44 +890,24 @@
     drawList(kind); refreshSel(); 
     const box = kind === "todo" ? $("#todolist") : $("#dumplist");
     const all = box.querySelectorAll('input[type=text]');
-    if (all.length) all[all.length - 1].focus();
+    const last = all[all.length - 1];
+    if (last) { if (last.openEdit) last.openEdit(); else last.focus(); }
     queue();
   }
   $("#addtodo").addEventListener("click", () => addItem("todo"));
   $("#adddump").addEventListener("click", () => addItem("dump"));
 
-  $("#pushdump").addEventListener("click", async () => {
-    if (dirty) { clearTimeout(timer); await save(); }
-    const open = day.dumps.filter((x) => !x.d && x.t.trim());
-    if (!open.length) { flash("넘길 미완료 메모가 없습니다"); return; }
-    const nd = new Date(date + "T12:00:00"); nd.setDate(nd.getDate() + 1);
-    const next = nd.getFullYear() + "-" + pad(nd.getMonth() + 1) + "-" + pad(nd.getDate());
-    const rec = await store.get(keyOf(next));
-    let obj = null;
-    if (rec && rec.value) { try { obj = JSON.parse(rec.value); } catch (e) { obj = null; } }
-    if (!obj) obj = { v: 4, blocks: emptyBlocks(), notes: {}, todos: [], dumps: [] };
-    if (!Array.isArray(obj.dumps)) obj.dumps = [];
-    const have = obj.dumps.map((x) => (x.t || "").trim());
-    let n = 0;
-    open.forEach((x) => {
-      if (have.indexOf(x.t.trim()) >= 0) return;
-      obj.dumps.push({ u: uid(), t: x.t, d: false, c: x.c });
-      have.push(x.t.trim());
-      n++;
-    });
-    if (!n) { flash("이미 다음날에 들어 있습니다"); return; }
-    obj.updatedAt = new Date().toISOString();
-    try {
-      await store.set(keyOf(next), JSON.stringify(obj));
-      schedulePush();
-      flash(next + " 로 " + n + "개를 넘겼습니다");
-    } catch (e) { flash("넘기지 못했습니다"); }
-  });
-
   $("#eraser").addEventListener("click", () => {
     eraseMode = !eraseMode;
     $("#eraser").setAttribute("aria-pressed", eraseMode);
+    rangeStart = null; clearRangeMark();
     refreshSel();
+  });
+  $("#range").addEventListener("click", () => {
+    rangeMode = !rangeMode;
+    $("#range").setAttribute("aria-pressed", rangeMode);
+    rangeStart = null; clearRangeMark();
+    flash(rangeMode ? "시작 칸과 끝 칸을 차례로 누르세요" : "범위 칠하기를 껐습니다");
   });
 
   function refreshSel() {
@@ -690,8 +972,9 @@
       if (!ok) throw new Error("no result");
       schedulePush();
       dirty = false;
-      if (BACKEND === "memory") setStatus("이 창에서만 임시 저장됨", "fail");
-      else setStatus((BACKEND === "local" ? "이 브라우저에 저장됨 · " : "저장됨 · ") + stamp(), "");
+      if (!ls) setStatus("이 창에서만 임시 저장됨", "fail");
+      else if (GH) setStatus("저장됨 · " + stamp() + " (GitHub 반영 중)", "");
+      else setStatus("이 브라우저에 저장됨 · " + stamp(), "");
     } catch (e) {
       setStatus("저장 실패 — 잠시 후 다시 시도합니다", "fail");
       clearTimeout(timer); timer = setTimeout(save, 4000);
@@ -701,6 +984,7 @@
   async function load(d) {
     if (dirty) { clearTimeout(timer); await save(); }
     date = d; sel = null; eraseMode = false;
+    rangeStart = null; if (typeof clearRangeMark === "function") clearRangeMark();
     $("#eraser").setAttribute("aria-pressed", "false");
     setStatus("불러오는 중…", "saving");
     const rec = await store.get(keyOf(d));
@@ -737,7 +1021,8 @@
     if (!day.todos.length) day.todos = [{ u: uid(), t: "", d: false, c: 1 }];
     if (!day.dumps.length) day.dumps = [{ u: uid(), t: "", d: false, c: 8 }];
     render(); dirty = false;
-    if (BACKEND === "memory") setStatus("저장 기능을 쓸 수 없는 환경입니다 — 백업 저장을 이용하세요", "fail");
+    if (!ls) setStatus("저장 기능을 쓸 수 없는 환경입니다 — 백업 저장을 이용하세요", "fail");
+    else if (!GH) setStatus(rec ? "이 PC에만 저장됨 · GitHub 연결을 권합니다" : "새 기록 — 이 PC에 저장됩니다", "");
     else setStatus(rec ? "저장됨 · 기록 있음" : "새 기록 — 입력하면 자동 저장됩니다", "");
   }
 
@@ -780,17 +1065,45 @@
   $("#picker").addEventListener("change", (e) => { if (e.target.value) load(e.target.value); });
   $("#printbtn").addEventListener("click", () => window.print());
 
-  $("#carry").addEventListener("click", async () => {
-    const d = new Date(date + "T12:00:00"); d.setDate(d.getDate() - 1);
-    const prev = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
-    const rec = await store.get(keyOf(prev));
-    if (!rec) { flash("전날 기록이 없습니다"); return; }
-    let data; try { data = JSON.parse(rec.value); } catch (e) { return; }
-    const open = (data.todos || []).filter((t) => !t.d && (t.t || "").trim());
-    if (!open.length) { flash("전날 미완료 항목이 없습니다"); return; }
-    day.todos = day.todos.filter((t) => t.t.trim()).concat(open.map((t) => ({ u: uid(), t: t.t, d: false, c: t.c || 1 })));
-    drawList("todo"); counts(); totals(); queue();
-  });
+  /* 지난 날짜에서 아직 끝나지 않은 항목만 모읍니다.
+     같은 내용이 여러 날에 걸쳐 있으면 "가장 나중 날짜"의 상태만 봅니다.
+     그래서 어제 불러와 완료한 항목은 그 이전 날짜에 미완료로 남아 있어도 다시 오지 않습니다. */
+  async function pullOpen(kind) {
+    if (dirty) { clearTimeout(timer); await save(); }
+    const all = await store.all();
+    const dates = Object.keys(all).filter((d) => d < date).sort();
+    const latest = {};   /* 내용 -> { date, done, c } : 가장 나중 날짜의 상태 */
+    dates.forEach((d) => {
+      let o; try { o = JSON.parse(all[d]); } catch (e) { return; }
+      const arr = (kind === "todo" ? o.todos : o.dumps) || [];
+      arr.forEach((x) => {
+        const t = (x.t || "").trim();
+        if (!t) return;
+        const prev = latest[t];
+        if (!prev || d >= prev.date) latest[t] = { date: d, done: !!x.d, c: x.c || 1, t: x.t };
+      });
+    });
+
+    const cur = (kind === "todo" ? day.todos : day.dumps);
+    const have = cur.map((x) => (x.t || "").trim()).filter(Boolean);
+    const found = [];
+    Object.keys(latest).forEach((t) => {
+      const it = latest[t];
+      if (it.done) return;                  /* 나중 날짜에서 이미 완료됨 */
+      if (have.indexOf(t) >= 0) return;     /* 오늘 목록에 이미 있음 */
+      found.push({ u: uid(), t: it.t, d: false, c: it.c, from: it.date });
+    });
+    found.sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0));
+
+    if (!found.length) { flash("불러올 미완료 항목이 없습니다"); return; }
+    const kept = cur.filter((x) => x.t.trim());
+    const merged = kept.concat(found.map((x) => ({ u: x.u, t: x.t, d: false, c: x.c })));
+    if (kind === "todo") day.todos = merged; else day.dumps = merged;
+    drawList(kind); counts(); totals(); refreshSel(); queue();
+    flash(found.length + "개를 불러왔습니다 (" + found[0].from + " 이후)");
+  }
+  $("#carry").addEventListener("click", () => pullOpen("todo"));
+  $("#pushdump").addEventListener("click", () => pullOpen("dump"));
 
   const archive = $("#archive");
   $("#archbtn").addEventListener("click", async () => {
@@ -810,15 +1123,13 @@
 
   $("#exportbtn").addEventListener("click", async () => {
     if (dirty) { clearTimeout(timer); await save(); }
-    const keys = await store.list("day:");
-    const out = { app: "daily-timebox", v: 2, exported: new Date().toISOString(), days: {} };
+    const out = { app: "daily-timebox", v: 5, exported: new Date().toISOString(), days: {}, tasks: null };
     let n = 0;
-    for (const k of keys) {
-      const r = await store.get(k);
-      if (!r || !r.value) continue;
-      try { out.days[k.replace("day:", "")] = JSON.parse(r.value); n++; } catch (e) { /* skip */ }
-    }
-    if (!n) { flash("저장된 기록이 없습니다"); return; }
+    const all = await store.all();
+    for (const d in all) { try { out.days[d] = JSON.parse(all[d]); n++; } catch (e) { /* skip */ } }
+    if (TASKS) out.tasks = { updatedAt: TASKS.updatedAt, cats: TASKS.cats,
+      items: TASKS.items.map((x) => ({ id: x.id, t: x.t, due: x.due, cat: x.cat, done: !!x.done })) };
+    if (!n && !(TASKS && TASKS.items.length)) { flash("저장된 기록이 없습니다"); return; }
     try {
       const url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: "application/json" }));
       const a = document.createElement("a");
@@ -837,172 +1148,733 @@
     rd.onload = async () => {
       try {
         const data = JSON.parse(rd.result);
-        const changed = await mergeIn(data, true);
+        const days = (data && data.days) || {};
+        let n = 0;
+        for (const d in days) {
+          const v = days[d];
+          DB[d] = (typeof v === "string") ? v : JSON.stringify(v);
+          n++;
+        }
+        if (n) saveLocal();
+        let tn = 0;
+        const rt = data && data.tasks;
+        if (rt && Array.isArray(rt.cats) && Array.isArray(rt.items)) {
+          TASKS = {
+            updatedAt: new Date().toISOString(),
+            cats: rt.cats,
+            items: rt.items.map((x) => ({ id: x.id || uid(), t: x.t || "", due: x.due || "", cat: x.cat, done: !!x.done, sel: false }))
+          };
+          if (ls) { try { ls.setItem(TKEY, JSON.stringify(TASKS)); } catch (e2) {} }
+          tn = TASKS.items.length;
+          if (!$("#tkback").hidden) drawTasks();
+        }
         dirty = false;
         await load(date);
-        if (fileHandle) await pushFile();
-        flash(changed.length + "일치 기록을 불러왔습니다");
+        if (GH) await ghPush(false);
+        flash(n + "일치" + (tn ? " + 할 일 " + tn + "개" : "") + "를 불러왔습니다");
       } catch (err) { flash("파일 형식이 올바르지 않습니다"); }
       e.target.value = "";
     };
     rd.readAsText(f);
   });
 
-  /* ---------- 클라우드 폴더 파일 동기화 ---------- */
-  const CAN_SYNC = typeof window.showSaveFilePicker === "function";
-  let fileHandle = null, lastMtime = 0, pushTimer = null, syncing = false;
 
-  function idb() {
-    return new Promise((res, rej) => {
-      const r = indexedDB.open("tbp-sync", 1);
-      r.onupgradeneeded = () => { r.result.createObjectStore("kv"); };
-      r.onsuccess = () => res(r.result);
-      r.onerror = () => rej(r.error);
+  /* ================= 할 일 목록 (유형별, 날짜와 무관한 상시 목록) ================= */
+  const TKEY = "tbp:tasks";
+  let TASKS = null;
+
+  function defaultTasks() {
+    return {
+      updatedAt: "",        /* 아직 손대지 않은 기본값 — 원격 기록에 항상 양보합니다 */
+      cats: [
+        { id: uid(), name: "행정 업무" },
+        { id: uid(), name: "연구 행정" },
+        { id: uid(), name: "논문 제출" }
+      ],
+      items: []
+    };
+  }
+  function loadTasks() {
+    if (ls) {
+      try {
+        const raw = ls.getItem(TKEY);
+        if (raw) {
+          const o = JSON.parse(raw);
+          if (o && Array.isArray(o.cats) && Array.isArray(o.items)) { TASKS = o; return; }
+        }
+      } catch (e) { /* 손상 시 새로 */ }
+    }
+    TASKS = defaultTasks();
+  }
+  function saveTasks(push) {
+    TASKS.updatedAt = new Date().toISOString();
+    if (ls) { try { ls.setItem(TKEY, JSON.stringify(TASKS)); } catch (e) {} }
+    if (push !== false) schedulePush();
+  }
+  function catName(id) {
+    const c = TASKS.cats.find((x) => x.id === id);
+    return c ? c.name : "";
+  }
+  function selected() { return TASKS.items.filter((x) => x.sel); }
+
+  /* ---- 그리기 ---- */
+  const tkBody = $("#tkbody");
+
+  function drawTasks() {
+    const hide = $("#tkhide").checked;
+    tkBody.innerHTML = "";
+    if (!TASKS.cats.length) {
+      tkBody.innerHTML = '<div class="tk-empty">유형이 없습니다. 아래 <b>+ 유형 추가</b>를 눌러 시작하세요.</div>';
+      tkCount();
+      return;
+    }
+    TASKS.cats.forEach((cat) => {
+      const box = document.createElement("div");
+      box.className = "tk-cat";
+      box.dataset.cat = cat.id;
+
+      const h = document.createElement("div");
+      h.className = "tk-cat-h";
+      const nm = document.createElement("input");
+      nm.className = "nm"; nm.value = cat.name; nm.setAttribute("aria-label", "유형 이름");
+      nm.addEventListener("input", () => { cat.name = nm.value; saveTasks(); });
+      const n = document.createElement("span");
+      n.className = "n";
+      const up = document.createElement("button");
+      up.className = "cm"; up.textContent = "↑"; up.title = "위로";
+      up.addEventListener("click", () => {
+        const i = TASKS.cats.indexOf(cat);
+        if (i > 0) { TASKS.cats.splice(i, 1); TASKS.cats.splice(i - 1, 0, cat); saveTasks(); drawTasks(); }
+      });
+      const dn = document.createElement("button");
+      dn.className = "cm"; dn.textContent = "↓"; dn.title = "아래로";
+      dn.addEventListener("click", () => {
+        const i = TASKS.cats.indexOf(cat);
+        if (i < TASKS.cats.length - 1) { TASKS.cats.splice(i, 1); TASKS.cats.splice(i + 1, 0, cat); saveTasks(); drawTasks(); }
+      });
+      const cx = document.createElement("button");
+      cx.className = "cx"; cx.textContent = "×"; cx.title = "유형 삭제";
+      cx.addEventListener("click", () => {
+        const mine = TASKS.items.filter((x) => x.cat === cat.id);
+        if (mine.length && !confirm("'" + cat.name + "' 유형의 항목 " + mine.length + "개도 함께 삭제됩니다. 계속할까요?")) return;
+        TASKS.items = TASKS.items.filter((x) => x.cat !== cat.id);
+        TASKS.cats = TASKS.cats.filter((x) => x.id !== cat.id);
+        saveTasks(); drawTasks();
+      });
+      h.append(nm, n, up, dn, cx);
+      box.appendChild(h);
+
+      const list = document.createElement("div");
+      list.className = "tk-items";
+      list.dataset.cat = cat.id;
+      const mine = TASKS.items.filter((x) => x.cat === cat.id);
+      const shown = hide ? mine.filter((x) => !x.done) : mine;
+      n.textContent = mine.filter((x) => !x.done).length + " / " + mine.length;
+
+      shown.forEach((it) => list.appendChild(taskRow(it)));
+      box.appendChild(list);
+
+      const add = document.createElement("div");
+      add.className = "tk-add";
+      const ab = document.createElement("button");
+      ab.className = "ghost"; ab.textContent = "+ 항목 추가";
+      ab.addEventListener("click", () => {
+        const it = { id: uid(), t: "", due: "", cat: cat.id, done: false, sel: false };
+        TASKS.items.push(it); saveTasks(); drawTasks();
+        const el = tkBody.querySelector('[data-id="' + it.id + '"] .tx');
+        if (el) el.focus();
+      });
+      add.appendChild(ab);
+      box.appendChild(add);
+
+      tkBody.appendChild(box);
+    });
+    tkCount();
+  }
+
+  function dueClass(due, done) {
+    if (!due || done) return "";
+    const t = todayStr();
+    if (due < t) return "over";
+    const d = new Date(due + "T12:00:00"); d.setDate(d.getDate() - 3);
+    const soon = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    return (t >= soon) ? "soon" : "";
+  }
+
+  function taskRow(it) {
+    const row = document.createElement("div");
+    row.className = "tk-row" + (it.done ? " done" : "");
+    row.dataset.id = it.id;
+
+    const grip = document.createElement("span");
+    grip.className = "grip"; grip.textContent = "⠿";
+    grip.draggable = true;
+    grip.title = "끌어서 다른 유형으로 옮기기";
+    grip.addEventListener("dragstart", (e) => {
+      dragTask = it.id;
+      row.classList.add("drag");
+      try {
+        e.dataTransfer.setData("text/plain", it.id);
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setDragImage(row, 20, row.offsetHeight / 2);
+      } catch (err) {}
+    });
+    grip.addEventListener("dragend", () => { dragTask = null; row.classList.remove("drag"); });
+    /* 끌지 않고 누르면 유형을 고르는 목록이 열립니다 (휴대폰용) */
+    grip.addEventListener("click", (e) => { e.stopPropagation(); catMenu(row, it); });
+
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.checked = !!it.sel;
+    cb.setAttribute("aria-label", "선택");
+    cb.addEventListener("change", () => { it.sel = cb.checked; tkCount(); });
+
+    const tx = document.createElement("input");
+    tx.type = "text"; tx.className = "tx"; tx.value = it.t; tx.placeholder = "해야 할 일";
+    tx.addEventListener("input", () => { it.t = tx.value; saveTasks(); });
+    tx.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const ni = { id: uid(), t: "", due: "", cat: it.cat, done: false, sel: false };
+        const at = TASKS.items.indexOf(it);
+        TASKS.items.splice(at + 1, 0, ni); saveTasks(); drawTasks();
+        const el = tkBody.querySelector('[data-id="' + ni.id + '"] .tx');
+        if (el) el.focus();
+      }
+    });
+
+    const due = document.createElement("input");
+    due.type = "date"; due.className = "due " + dueClass(it.due, it.done);
+    due.value = it.due || ""; due.title = "마감일";
+    due.addEventListener("change", () => {
+      it.due = due.value; saveTasks();
+      due.className = "due " + dueClass(it.due, it.done);
+    });
+
+    const dn = document.createElement("button");
+    dn.className = "dx"; dn.textContent = it.done ? "↺" : "✓";
+    dn.title = it.done ? "완료 취소" : "완료 표시";
+    dn.style.opacity = "1";
+    dn.addEventListener("click", () => { it.done = !it.done; saveTasks(); drawTasks(); });
+
+    const dx = document.createElement("button");
+    dx.className = "dx"; dx.textContent = "×"; dx.title = "삭제";
+    dx.addEventListener("click", () => {
+      TASKS.items = TASKS.items.filter((x) => x.id !== it.id);
+      saveTasks(); drawTasks();
+    });
+
+    row.append(grip, cb, tx, due, dn, dx);
+
+    return row;
+  }
+
+  function catMenu(row, it) {
+    document.querySelectorAll(".cat-menu").forEach((x) => x.remove());
+    const m = document.createElement("div");
+    m.className = "cat-menu";
+    TASKS.cats.forEach((c) => {
+      const b = document.createElement("button");
+      b.textContent = c.name || "(이름 없음)";
+      if (c.id === it.cat) b.className = "on";
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        it.cat = c.id; m.remove(); saveTasks(); drawTasks();
+      });
+      m.appendChild(b);
+    });
+    row.appendChild(m);
+    const off = (e) => {
+      if (!e.target.closest(".cat-menu")) { m.remove(); document.removeEventListener("pointerdown", off, true); }
+    };
+    setTimeout(() => document.addEventListener("pointerdown", off, true), 0);
+  }
+
+  function tkCount() {
+    const n = selected().length;
+    $("#tksel").textContent = n ? n + "개 선택됨" : "선택 없음";
+    const all = TASKS.items.length;
+    const box = $("#tkall");
+    box.checked = all > 0 && n === all;
+    box.indeterminate = n > 0 && n < all;
+  }
+
+  /* ---- 끌어 옮기기 (유형 간 이동 + 같은 유형 안 순서) ---- */
+  let dragTask = null;
+
+  function afterEl(list, y) {
+    const rows = Array.prototype.slice.call(list.querySelectorAll(".tk-row:not(.drag)"));
+    for (let i = 0; i < rows.length; i++) {
+      const b = rows[i].getBoundingClientRect();
+      if (y < b.top + b.height / 2) return rows[i];
+    }
+    return null;
+  }
+  tkBody.addEventListener("dragover", (e) => {
+    if (!dragTask) return;
+    const list = e.target.closest(".tk-items");
+    if (!list) return;
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = "move"; } catch (err) {}
+    tkBody.querySelectorAll(".tk-cat.over").forEach((x) => x.classList.remove("over"));
+    list.parentElement.classList.add("over");
+    const row = tkBody.querySelector('.tk-row[data-id="' + dragTask + '"]');
+    if (!row) return;
+    const ref = afterEl(list, e.clientY);
+    if (ref) list.insertBefore(row, ref); else list.appendChild(row);
+  });
+  tkBody.addEventListener("dragleave", (e) => {
+    const list = e.target.closest(".tk-items");
+    if (list && !list.contains(e.relatedTarget)) list.parentElement.classList.remove("over");
+  });
+  tkBody.addEventListener("drop", (e) => {
+    if (!dragTask) return;
+    e.preventDefault();
+    tkBody.querySelectorAll(".tk-cat.over").forEach((x) => x.classList.remove("over"));
+    /* 화면에 놓인 순서 그대로 데이터에 반영합니다 */
+    const order = [];
+    tkBody.querySelectorAll(".tk-items").forEach((list) => {
+      const cid = list.dataset.cat;
+      list.querySelectorAll(".tk-row").forEach((r) => order.push({ id: r.dataset.id, cat: cid }));
+    });
+    const byId = {};
+    TASKS.items.forEach((x) => { byId[x.id] = x; });
+    const next = [];
+    order.forEach((o) => {
+      const it = byId[o.id];
+      if (!it) return;
+      it.cat = o.cat;
+      next.push(it); delete byId[o.id];
+    });
+    /* 숨겨져 있던 완료 항목은 원래 자리를 지킵니다 */
+    TASKS.items.forEach((x) => { if (byId[x.id]) next.push(x); });
+    TASKS.items = next;
+    dragTask = null;
+    saveTasks(); drawTasks();
+  });
+
+  /* ---- 위쪽 일괄 버튼 ---- */
+  function sendSelected(kind) {
+    const picked = selected().filter((x) => x.t.trim());
+    if (!picked.length) { alert("먼저 왼쪽 상자에서 항목을 선택하세요."); return; }
+    const arr = (kind === "todo" ? day.todos : day.dumps);
+    const have = arr.map((x) => (x.t || "").trim());
+    let n = 0;
+    picked.forEach((x) => {
+      const label = x.due ? x.t + " (~" + x.due + ")" : x.t;
+      if (have.indexOf(label) >= 0) return;
+      have.push(label);
+      arr.push({ u: uid(), t: label, d: false, c: nextColor() });
+      n++;
+    });
+    if (kind === "todo") day.todos = arr.filter((x) => x.t.trim());
+    else day.dumps = arr.filter((x) => x.t.trim());
+    if (!day.todos.length) day.todos = [{ u: uid(), t: "", d: false, c: 1 }];
+    if (!day.dumps.length) day.dumps = [{ u: uid(), t: "", d: false, c: 8 }];
+    TASKS.items.forEach((x) => { x.sel = false; });
+    drawList("todo"); drawList("dump"); counts(); totals(); refreshSel(); queue();
+    drawTasks();
+    closeTasks();
+    flash(n ? n + "개를 " + (kind === "todo" ? "To Do List" : "Brain Dump") + "로 보냈습니다" : "이미 오늘 목록에 있습니다");
+  }
+  $("#tk2todo").addEventListener("click", () => sendSelected("todo"));
+  $("#tk2dump").addEventListener("click", () => sendSelected("dump"));
+  $("#tkall").addEventListener("change", (e) => {
+    TASKS.items.forEach((x) => { x.sel = e.target.checked; });
+    drawTasks();
+  });
+  $("#tkhide").addEventListener("change", drawTasks);
+  $("#tkaddcat").addEventListener("click", () => {
+    const name = prompt("새 유형 이름", "새 유형");
+    if (name === null) return;
+    TASKS.cats.push({ id: uid(), name: name.trim() || "새 유형" });
+    saveTasks(); drawTasks();
+  });
+
+  /* ---- 열고 닫기 ---- */
+  function openTasks() { $("#tkback").hidden = false; drawTasks(); }
+  function closeTasks() {
+    $("#tkback").hidden = true;
+    TASKS.items.forEach((x) => { x.sel = false; });
+  }
+  $("#tasksbtn").addEventListener("click", openTasks);
+  $("#tkclose").addEventListener("click", closeTasks);
+  $("#tkback").addEventListener("click", (e) => { if (e.target === $("#tkback")) closeTasks(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("#tkback").hidden) closeTasks();
+  });
+
+  /* ================= 오늘 목록끼리 끌어 옮기기 ================= */
+  let dragDay = null;   /* { u, kind } */
+
+  function dayAfterEl(box, y) {
+    const rows = Array.prototype.slice.call(box.querySelectorAll(".item:not(.drag)"));
+    for (let i = 0; i < rows.length; i++) {
+      const b = rows[i].getBoundingClientRect();
+      if (y < b.top + b.height / 2) return rows[i];
+    }
+    return null;
+  }
+  function wireDayDnD(box, kind) {
+    box.addEventListener("dragover", (e) => {
+      if (!dragDay) return;
+      e.preventDefault();
+      try { e.dataTransfer.dropEffect = "move"; } catch (err) {}
+      box.classList.add("over");
+    });
+    box.addEventListener("dragleave", (e) => { if (!box.contains(e.relatedTarget)) box.classList.remove("over"); });
+    box.addEventListener("drop", (e) => {
+      if (!dragDay) return;
+      e.preventDefault();
+      box.classList.remove("over");
+      const from = dragDay.kind === "todo" ? day.todos : day.dumps;
+      const to = kind === "todo" ? day.todos : day.dumps;
+      const i = from.findIndex((x) => x.u === dragDay.u);
+      if (i < 0) return;
+      const it = from.splice(i, 1)[0];
+      const ref = dayAfterEl(box, e.clientY);
+      let at = to.length;
+      if (ref) {
+        const rid = ref.dataset.u;
+        const j = to.findIndex((x) => x.u === rid);
+        if (j >= 0) at = j;
+      }
+      to.splice(at, 0, it);
+      if (!day.todos.length) day.todos = [{ u: uid(), t: "", d: false, c: 1 }];
+      if (!day.dumps.length) day.dumps = [{ u: uid(), t: "", d: false, c: 8 }];
+      dragDay = null;
+      drawList("todo"); drawList("dump"); counts(); totals(); refreshSel(); queue();
     });
   }
-  async function idbGet(k) {
-    try {
-      const d = await idb();
-      return await new Promise((res, rej) => {
-        const q = d.transaction("kv", "readonly").objectStore("kv").get(k);
-        q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
-      });
-    } catch (e) { return null; }
+  wireDayDnD($("#todolist"), "todo");
+  wireDayDnD($("#dumplist"), "dump");
+
+  /* ---------- GitHub 저장소 동기화 ---------- */
+  const CKEY = "tbp:gh";
+  let GH = null;            /* { owner, repo, branch, path, token } */
+  let ghSha = null;         /* 마지막으로 본 원격 파일 버전 */
+  let pushTimer = null, busy = false;
+
+  function ghLoad() {
+    if (!ls) return null;
+    try { return JSON.parse(ls.getItem(CKEY) || "null"); } catch (e) { return null; }
   }
-  async function idbSet(k, v) {
-    try {
-      const d = await idb();
-      await new Promise((res, rej) => {
-        const q = d.transaction("kv", "readwrite").objectStore("kv").put(v, k);
-        q.onsuccess = () => res(); q.onerror = () => rej(q.error);
-      });
-    } catch (e) { /* ignore */ }
+  function ghSave(cfg) { if (ls) { try { ls.setItem(CKEY, JSON.stringify(cfg)); } catch (e) {} } }
+
+  function b64encode(str) {
+    const bytes = new TextEncoder().encode(str);
+    let out = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) out += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(out);
+  }
+  function b64decode(b64) {
+    const bin = atob(String(b64).replace(/\s/g, ""));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
   }
 
-  async function collect() {
-    const keys = await store.list("day:");
-    const days = {};
-    for (const k of keys) {
-      const r = await store.get(k);
-      if (!r || !r.value) continue;
-      try { days[k.replace("day:", "")] = JSON.parse(r.value); } catch (e) { /* skip */ }
-    }
-    return { app: "daily-timebox", v: 2, exported: new Date().toISOString(), days: days };
+  function ghUrl() {
+    return "https://api.github.com/repos/" + GH.owner + "/" + GH.repo + "/contents/" + GH.path;
+  }
+  function ghHeaders() {
+    return {
+      "Authorization": "Bearer " + GH.token,
+      "Accept": "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28"
+    };
   }
 
-  /* 날짜별로 더 최근에 수정된 쪽을 남긴다 */
-  async function mergeIn(data, force) {
-    const days = (data && data.days) || {};
-    const changed = [];
+  /* 원격 읽기 — 없으면 null, 토큰/주소 오류는 예외 */
+  async function ghFetch() {
+    const r = await fetch(ghUrl() + "?ref=" + encodeURIComponent(GH.branch) + "&t=" + Date.now(),
+      { headers: ghHeaders(), cache: "no-store" });
+    if (r.status === 404) { ghSha = null; return null; }
+    if (r.status === 401) throw new Error("토큰이 올바르지 않습니다");
+    if (r.status === 403) throw new Error("권한이 없습니다 (토큰 권한 확인)");
+    if (!r.ok) throw new Error("읽기 실패 (" + r.status + ")");
+    const j = await r.json();
+    ghSha = j.sha;
+    try { return JSON.parse(b64decode(j.content)); } catch (e) { return null; }
+  }
+
+  /* 날짜별로 더 최근에 고친 쪽을 남깁니다 */
+  function mergeDays(remote) {
+    const days = (remote && remote.days) || {};
+    let changed = 0, touchedToday = false;
     for (const d in days) {
       const inc = days[d];
       if (!inc) continue;
-      const cur = await store.get(keyOf(d));
-      let curObj = null;
-      if (cur && cur.value) { try { curObj = JSON.parse(cur.value); } catch (e) { curObj = null; } }
-      const wins = force || !curObj || String(inc.updatedAt || "") > String(curObj.updatedAt || "");
-      if (wins) { await store.set(keyOf(d), JSON.stringify(inc)); changed.push(d); }
+      const incStr = (typeof inc === "string") ? inc : JSON.stringify(inc);
+      let incAt = "", curAt = "";
+      try { incAt = (JSON.parse(incStr).updatedAt) || ""; } catch (e) {}
+      if (DB[d]) { try { curAt = (JSON.parse(DB[d]).updatedAt) || ""; } catch (e) {} }
+      if (!DB[d] || incAt > curAt) {
+        DB[d] = incStr; changed++;
+        if (d === date) touchedToday = true;
+      }
     }
-    return changed;
+    if (changed) saveLocal();
+
+    /* 할 일 목록은 통째로 비교해 더 나중에 고친 쪽을 남깁니다 */
+    const rt = remote && remote.tasks;
+    if (rt && Array.isArray(rt.cats) && Array.isArray(rt.items)) {
+      const mine = (TASKS && TASKS.updatedAt) || "";
+      if (!TASKS || String(rt.updatedAt || "") > mine) {
+        TASKS = {
+          updatedAt: rt.updatedAt || new Date().toISOString(),
+          cats: rt.cats,
+          items: rt.items.map((x) => ({ id: x.id || uid(), t: x.t || "", due: x.due || "", cat: x.cat, done: !!x.done, sel: false }))
+        };
+        if (ls) { try { ls.setItem(TKEY, JSON.stringify(TASKS)); } catch (e) {} }
+        if (!$("#tkback").hidden) drawTasks();
+      }
+    }
+    return { changed: changed, touchedToday: touchedToday };
   }
 
-  async function ensurePerm(mode) {
-    if (!fileHandle) return false;
-    try {
-      const opt = { mode: mode };
-      if ((await fileHandle.queryPermission(opt)) === "granted") return true;
-      return (await fileHandle.requestPermission(opt)) === "granted";
-    } catch (e) { return false; }
+  function payload() {
+    const days = {};
+    for (const d in DB) { try { days[d] = JSON.parse(DB[d]); } catch (e) {} }
+    const tasks = TASKS
+      ? { updatedAt: TASKS.updatedAt, cats: TASKS.cats,
+          items: TASKS.items.map((x) => ({ id: x.id, t: x.t, due: x.due, cat: x.cat, done: !!x.done })) }
+      : null;
+    return { app: "daily-timebox", v: 5, updatedAt: new Date().toISOString(), days: days, tasks: tasks };
   }
 
-  async function pullFile(silent) {
-    if (!fileHandle || syncing) return [];
-    syncing = true;
+  async function ghPush(retry) {
+    if (!GH || busy) return;
+    busy = true;
     try {
-      if (!(await ensurePerm("readwrite"))) { syncInfo("권한 필요"); return []; }
-      const f = await fileHandle.getFile();
-      lastMtime = f.lastModified;
-      const txt = await f.text();
-      if (!txt.trim()) return [];
-      let data; try { data = JSON.parse(txt); } catch (e) { return []; }
-      const changed = await mergeIn(data, false);
-      if (changed.indexOf(date) >= 0) { dirty = false; await load(date); }
-      if (changed.length && !silent) flash(changed.length + "일치 기록을 가져왔습니다");
-      return changed;
-    } catch (e) { return []; } finally { syncing = false; }
+      const body = {
+        message: "timebox " + date + " " + stamp(),
+        content: b64encode(JSON.stringify(payload(), null, 1)),
+        branch: GH.branch
+      };
+      if (ghSha) body.sha = ghSha;
+      const r = await fetch(ghUrl(), { method: "PUT", headers: ghHeaders(), body: JSON.stringify(body) });
+      if (r.status === 409 || r.status === 422) {
+        /* 다른 PC가 먼저 올렸습니다 — 합친 뒤 다시 시도 */
+        busy = false;
+        const remote = await ghFetch();
+        const res = mergeDays(remote);
+        if (res.touchedToday) { dirty = false; await load(date); }
+        if (!retry) return ghPush(true);
+        ghInfo("동기화 충돌 — 다시 시도해 주세요", false);
+        return;
+      }
+      if (!r.ok) throw new Error("올리기 실패 (" + r.status + ")");
+      const j = await r.json();
+      ghSha = (j.content && j.content.sha) || ghSha;
+      ghInfo("GitHub 저장됨 · " + stamp(), true);
+    } catch (e) {
+      ghInfo(String(e.message || e), false);
+    } finally { busy = false; }
   }
 
-  async function pushFile() {
-    if (!fileHandle) return;
-    try {
-      if (!(await ensurePerm("readwrite"))) { syncInfo("권한 필요"); return; }
-      const w = await fileHandle.createWritable();
-      await w.write(JSON.stringify(await collect(), null, 1));
-      await w.close();
-      const f = await fileHandle.getFile();
-      lastMtime = f.lastModified;
-      syncInfo("동기화됨 · " + stamp(), true);
-    } catch (e) { syncInfo("동기화 실패"); }
-  }
   function schedulePush() {
-    if (!fileHandle) return;
+    if (!GH) return;
     clearTimeout(pushTimer);
-    pushTimer = setTimeout(pushFile, 1500);
-  }
-  function syncInfo(msg, ok) {
-    const el = $("#syncinfo");
-    el.textContent = msg ? "⇅ " + msg : "";
-    el.className = ok ? "on" : "";
+    pushTimer = setTimeout(function () { ghPush(false); }, 2500);
   }
 
-  async function connectFile() {
+  async function ghPull(silent) {
+    if (!GH || busy) return;
+    busy = true;
     try {
-      const h = await window.showSaveFilePicker({
-        suggestedName: "timebox-data.json",
-        types: [{ description: "타임박스 기록", accept: { "application/json": [".json"] } }]
-      });
-      fileHandle = h;
-      await idbSet("handle", h);
-      $("#syncbtn").textContent = "동기화 해제";
-      if (dirty) { clearTimeout(timer); await save(); }
-      await pullFile(true);
-      await pushFile();
-      flash("클라우드 파일과 연결되었습니다");
-    } catch (e) { /* 사용자가 취소 */ }
+      const remote = await ghFetch();
+      const res = mergeDays(remote);
+      if (res.touchedToday) { dirty = false; busy = false; await load(date); busy = true; }
+      else if (res.changed) { /* 다른 날짜만 바뀜 */ }
+      if (!silent) flash(res.changed ? res.changed + "일치를 가져왔습니다" : "최신 상태입니다");
+      ghInfo("GitHub 연결됨 · " + stamp(), true);
+    } catch (e) {
+      ghInfo(String(e.message || e), false);
+    } finally { busy = false; }
   }
 
-  if (!CAN_SYNC) {
-    $("#syncbtn").style.display = "none";
-  } else {
-    $("#syncbtn").addEventListener("click", async () => {
-      if (fileHandle) {
-        fileHandle = null; await idbSet("handle", null);
-        $("#syncbtn").textContent = "클라우드 폴더 연결";
-        syncInfo("");
-        flash("동기화를 껐습니다");
-      } else { connectFile(); }
-    });
-    idbGet("handle").then(async (h) => {
-      if (!h) return;
-      fileHandle = h;
-      $("#syncbtn").textContent = "동기화 해제";
-      let granted = false;
-      try { granted = (await h.queryPermission({ mode: "readwrite" })) === "granted"; } catch (e) { granted = false; }
-      if (granted) { syncInfo("연결됨", true); await pullFile(true); }
-      else { syncInfo("연결됨 — 버튼을 눌러 권한 확인"); $("#syncbtn").textContent = "동기화 다시 연결"; }
-    });
-    /* 다른 기기가 파일을 바꿨는지 주기적으로 확인 */
-    setInterval(async () => {
-      if (!fileHandle || document.hidden || syncing || dirty) return;
-      try {
-        const f = await fileHandle.getFile();
-        if (f.lastModified > lastMtime + 500) await pullFile(false);
-      } catch (e) { /* ignore */ }
-    }, 20000);
-    document.addEventListener("visibilitychange", () => { if (!document.hidden && fileHandle && !dirty) pullFile(true); });
+  function ghInfo(msg, ok) {
+    const el = $("#syncinfo");
+    if (!el) return;
+    el.textContent = msg ? "⇅ " + msg : "";
+    el.className = ok ? "on" : "fail";
   }
+
+  /* ---- 설정 창 ---- */
+  function openGh() {
+    const cur = GH || { owner: "", repo: "", branch: "main", path: "timebox-data.json", token: "" };
+    const back = document.createElement("div");
+    back.className = "modal-back";
+    back.innerHTML =
+      '<div class="modal">' +
+      '<h3>GitHub 연결</h3>' +
+      '<p class="mnote">기록을 저장할 <b>비공개</b> 저장소를 지정합니다. 설명서의 순서대로 만드신 값을 넣으세요.</p>' +
+      '<label>GitHub 사용자 이름<input id="gh-owner" placeholder="예: sangkook" value="' + cur.owner + '"></label>' +
+      '<label>저장소 이름<input id="gh-repo" placeholder="예: timebox-data" value="' + cur.repo + '"></label>' +
+      '<label>브랜치<input id="gh-branch" value="' + cur.branch + '"></label>' +
+      '<label>파일 이름<input id="gh-path" value="' + cur.path + '"></label>' +
+      '<label>액세스 토큰<input id="gh-token" type="password" placeholder="github_pat_..." value="' + (cur.token || "") + '"></label>' +
+      '<p class="mnote">토큰은 이 브라우저에만 저장됩니다. 공용 PC에서는 사용을 피하세요.</p>' +
+      '<div class="mrow">' +
+      '<button class="ghost" id="gh-cancel">취소</button>' +
+      (GH ? '<button class="ghost" id="gh-off">연결 해제</button>' : '') +
+      '<button class="ghost" id="gh-ok">연결하고 불러오기</button>' +
+      '</div></div>';
+    document.body.appendChild(back);
+    back.addEventListener("click", (e) => { if (e.target === back) back.remove(); });
+    back.querySelector("#gh-cancel").addEventListener("click", () => back.remove());
+    const off = back.querySelector("#gh-off");
+    if (off) off.addEventListener("click", () => {
+      GH = null; ghSha = null;
+      if (ls) ls.removeItem(CKEY);
+      $("#ghbtn").textContent = "GitHub 연결";
+      ghInfo("");
+      back.remove();
+      flash("연결을 해제했습니다 (기록은 이 PC에 남아 있습니다)");
+    });
+    back.querySelector("#gh-ok").addEventListener("click", async () => {
+      const cfg = {
+        owner: back.querySelector("#gh-owner").value.trim(),
+        repo: back.querySelector("#gh-repo").value.trim(),
+        branch: back.querySelector("#gh-branch").value.trim() || "main",
+        path: back.querySelector("#gh-path").value.trim() || "timebox-data.json",
+        token: back.querySelector("#gh-token").value.trim()
+      };
+      if (!cfg.owner || !cfg.repo || !cfg.token) { alert("사용자 이름, 저장소 이름, 토큰은 모두 필요합니다."); return; }
+      const prev = GH;
+      GH = cfg; ghSha = null;
+      try {
+        const remote = await ghFetch();
+        const res = mergeDays(remote);
+        ghSave(cfg);
+        $("#ghbtn").textContent = "GitHub 설정";
+        back.remove();
+        if (res.touchedToday) { dirty = false; await load(date); }
+        await ghPush(false);
+        flash(remote ? "연결되었습니다 — " + res.changed + "일치를 가져왔습니다" : "연결되었습니다 — 새 파일을 만들었습니다");
+      } catch (e) {
+        GH = prev;
+        alert("연결하지 못했습니다.\n\n" + (e.message || e) + "\n\n사용자 이름·저장소 이름·토큰을 다시 확인해 주세요.");
+      }
+    });
+    back.querySelector("#gh-owner").focus();
+  }
+  $("#ghbtn").addEventListener("click", openGh);
+
+  /* 다른 PC의 변경을 주기적으로 확인 */
+  setInterval(() => { if (GH && !document.hidden && !dirty && !busy) ghPull(true); }, 60000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && GH && !dirty) ghPull(true); });
 
   window.addEventListener("beforeunload", () => { if (dirty) save(); });
-  load(date);
+
+  /* 기기에 맞는 안내 문구 */
+  (function () {
+    const h = document.querySelector(".penbar .hint");
+    if (!h) return;
+    h.textContent = COARSE
+      ? "항목을 한 번 눌러 고른 뒤 표를 누르세요 · 글자를 고치려면 항목을 한 번 더 누릅니다"
+      : "항목을 클릭해 고른 뒤 표를 드래그하세요 · 범위를 켜면 시작·끝 칸만 눌러도 됩니다";
+  })();
+
+  /* 시작 */
+  loadLocal();
+  loadTasks();
+  GH = ghLoad();
+  if (GH) $("#ghbtn").textContent = "GitHub 설정";
+  load(date).then(() => { if (GH) ghPull(true); });
 })();
 </script>
+
+<style>
+/* ---------- 좁은 화면 / 휴대폰 ---------- */
+@media (max-width: 760px) {
+  #app { padding: 0 0 env(safe-area-inset-bottom); }
+  .sheet { border: 0; box-shadow: none; }
+  .body { display: flex; flex-direction: column; }
+  .col-r { order: -1; border-left: 0; border-bottom: 3px solid var(--ink); }
+  .top { padding: calc(12px + env(safe-area-inset-top)) 14px 10px; gap: 10px; }
+  .bigdate { font-size: 34px; }
+  .eyebrow { font-size: 12px; letter-spacing: .26em; margin-bottom: 8px; }
+  .top-right { margin-left: 0; align-items: flex-start; width: 100%; gap: 10px; }
+  .nav { flex-wrap: wrap; }
+  .nav button, .ghost, .arch-list button { font-size: 15px; padding: 10px 14px; }
+  .nav input[type=date] { font-size: 16px; padding: 8px 10px; }
+  .dow span { width: 30px; height: 30px; font-size: 15px; }
+  .label { padding: 18px 14px 8px; font-size: 13px; letter-spacing: .22em; }
+  .penbar {
+    position: sticky; top: 0; z-index: 30;
+    background: var(--sheet); padding: 10px 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .penbar .hint {
+    display: block; flex-basis: 100%; font-size: 13px; order: 9;
+  }
+  .penbar .now-pen { flex: 1; max-width: none; font-size: 16px; }
+  .plan { padding: 0 14px 22px; }
+  .colhead, .row { grid-template-columns: 32px repeat(6, 1fr); }
+  .colhead .h-note { display: none; }
+  .colhead { font-size: 12px; }
+  .hr { font-size: 15px; padding-right: 7px; }
+  .cell { height: 44px; font-size: 15px; }
+  .row .note { display: none; }
+  .row.has .note {
+    display: block; grid-column: 1 / -1;
+    border-left: 0; border-top: 1px dashed var(--rule);
+    font-size: 16px; height: 34px; padding: 0 10px 0 34px;
+  }
+  .row.has .note::placeholder { color: var(--rule-strong); }
+  .items { padding: 0 14px 16px; }
+  .item { margin-left: -14px; padding: 11px 0 11px 10px; gap: 12px; }
+  .item input[type=text] { font-size: 17px; }
+  .item .grip { opacity: 1; }
+  .dot { width: 32px; height: 32px; font-size: 15px; }
+  .box { width: 24px; height: 24px; }
+  .item.done .box::after { left: 6px; top: 1px; width: 7px; height: 13px; }
+  .item .del { opacity: 1; font-size: 26px; padding: 0 6px; }
+  .item .mv { opacity: 1; font-size: 13px; padding: 6px 9px; }
+  .item .mins { font-size: 13px; }
+  .addrow { gap: 10px; }
+  .foot { padding: 14px; font-size: 14px; gap: 10px; }
+  .foot .right { gap: 8px; flex-wrap: wrap; }
+  .archive { padding: 16px 14px 22px; }
+  .pal button { width: 32px; height: 32px; }
+}
+</style>
+
+<script>
+/* 칠했거나 내용이 있는 시간대에만 메모 줄을 보여줍니다 (좁은 화면) */
+(function () {
+  function sync() {
+    var rows = document.querySelectorAll("#grid .row");
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var n = row.querySelector(".note");
+      var need = (n && n.value.trim().length > 0)
+              || (n && document.activeElement === n)
+              || row.classList.contains("noteopen");
+      row.classList.toggle("has", !!need);
+    }
+  }
+  var guarded = sync;
+  sync = function () { if (!window.__tbPainting) guarded(); };
+  setInterval(sync, 350);
+  document.addEventListener("focusin", sync);
+
+  /* 시간 숫자를 누르면 그 시간대 메모줄이 열리고 닫힙니다 */
+  var grid = document.getElementById("grid");
+  if (grid) grid.addEventListener("click", function (e) {
+    var hr = e.target.closest(".hr");
+    if (!hr) return;
+    var row = hr.parentElement;
+    row.classList.toggle("noteopen");
+    sync();
+    if (row.classList.contains("noteopen")) {
+      var n = row.querySelector(".note");
+      if (n) n.focus();
+    }
+  });
+  sync();
+})();
+</script>
+</body>
+</html>
